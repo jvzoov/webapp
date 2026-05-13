@@ -1,9 +1,8 @@
-'use client';
-
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import RatingModal from './RatingModal';
 import type { BookingWithDetails, BookingStatus } from '@/types/database';
+import { formatINR } from '@/lib/utils';
 
 interface Props {
   booking: BookingWithDetails;
@@ -82,7 +81,7 @@ export default function BookingHistoryCard({ booking }: Props) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Stars rating={booking.review?.rating} />
           <span style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '22px', color: '#FF6B00' }}>
-            ₹{Math.round(booking.total_amount / 100)}
+            {formatINR(booking.total_amount)}
           </span>
         </div>
 

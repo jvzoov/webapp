@@ -1,118 +1,137 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
-
-export interface MatchResult {
-  matched:   boolean;
-  standerId?: string;
-}
+import { haversineKm } from '@/lib/utils';
+import { sendStanderMatched, sendJobAcceptedToStander } from '@/lib/wati';
 
 /**
- * Finds the best available online stander and assigns them to the booking.
- * Called after payment is verified.
+ * Matches an available stander to a booking.
+ * 1. Checks eligibility.
+ * 2. Filters by distance (< 15km).
+ * 3. Assigns top-rated stander.
  */
-export async function matchStanderToBooking(bookingId: string): Promise<MatchResult> {
-  // 1. Fetch booking details
+export async function matchStanderToBooking(
+  bookingId: string
+): Promise<{ matched: boolean; standerId?: string }> {
+  
+  // STEP 1: Fetch booking
   const { data: booking, error: bookingErr } = await supabaseAdmin
     .from('bookings')
-    .select('id, location_id, start_time, estimated_hours, stander_payout, location:locations(name)')
+    .select(`
+      *,
+      location:locations(name, lat, lng),
+      client:users!client_id(name, phone)
+    `)
     .eq('id', bookingId)
+    .eq('status', 'PENDING_MATCH')
     .single();
 
   if (bookingErr || !booking) {
-    console.error('matchStanderToBooking: booking not found', bookingId);
+    console.log(`[Match] Booking ${bookingId} not found or not in PENDING_MATCH state.`);
     return { matched: false };
   }
 
-  // 2. Find eligible standers (online, not currently busy)
-  const { data: candidates, error: standersErr } = await supabaseAdmin
-    .from('users')
+  // STEP 2: Find eligible standers (online, not busy)
+  const { data: standers, error: standersErr } = await supabaseAdmin
+    .from('stander_profiles')
     .select(`
-      id,
-      name,
-      stander_profiles!inner(rating, job_count, is_online)
+      *,
+      user:users!user_id(id, name, phone, avatar_initials)
     `)
-    .eq('role', 'STANDER')
-    .eq('stander_profiles.is_online', true)
-    .not('id', 'in', `(
+    .eq('is_online', true)
+    .not('user_id', 'in', `(
       SELECT stander_id FROM bookings
-      WHERE status IN ('MATCHED','ACTIVE','ALERT')
-        AND stander_id IS NOT NULL
+      WHERE status IN ('MATCHED','ACTIVE','ALERT') AND stander_id IS NOT NULL
     )`)
-    .order('stander_profiles(rating)', { ascending: false })
-    .limit(10);
+    .order('rating', { ascending: false })
+    .order('job_count', { ascending: false })
+    .limit(30); // Higher limit to filter by distance client-side
 
-  if (standersErr) {
-    console.error('matchStanderToBooking: standers query error', standersErr);
-  }
-
-  if (!candidates || candidates.length === 0) {
-    // No standers available
-    await supabaseAdmin.from('notifications').insert({
-      user_id: (await getClientId(bookingId)),
-      type:    'MATCHED',
-      message: 'Finding your stander… We\'ll notify you shortly.',
-    });
+  if (standersErr || !standers) {
+    console.error('[Match] Failed to query standers:', standersErr);
     return { matched: false };
   }
 
-  // 3. Pick top-rated stander
-  const stander      = candidates[0] as any;
-  const standerName  = stander.name as string;
-  const standerId    = stander.id as string;
-  const locationName = (booking as any).location?.name ?? 'the location';
-  const payoutRupees = Math.round((booking as any).stander_payout / 100);
-
-  const startFormatted = new Date((booking as any).start_time).toLocaleTimeString('en-IN', {
-    hour: '2-digit', minute: '2-digit', hour12: true,
+  // Filter by distance < 15km if both have coords
+  const eligibleStanders = standers.filter(s => {
+    if (booking.location?.lat && booking.location?.lng && s.last_lat && s.last_lng) {
+      const dist = haversineKm(booking.location.lat, booking.location.lng, s.last_lat, s.last_lng);
+      return dist < 15;
+    }
+    return true; // Default to true if no coords yet for matching
   });
 
-  // 4. Update booking
-  await supabaseAdmin
+  if (eligibleStanders.length === 0) {
+    console.log(`[Match] No eligible standers within 15km for booking ${bookingId}`);
+    return { matched: false };
+  }
+
+  // STEP 3: Assign top stander
+  const chosen = eligibleStanders[0];
+  const { error: updateErr } = await supabaseAdmin
     .from('bookings')
-    .update({ stander_id: standerId, status: 'MATCHED' })
+    .update({ 
+      stander_id: chosen.user_id, 
+      status: 'MATCHED', 
+      updated_at: new Date().toISOString() 
+    })
     .eq('id', bookingId);
 
-  // 5. Notify client
-  const clientId = await getClientId(bookingId);
-  if (clientId) {
-    await supabaseAdmin.from('notifications').insert({
-      user_id: clientId,
-      type:    'MATCHED',
-      message: `Stander matched! ${standerName} is heading to ${locationName}`,
-    });
+  if (updateErr) {
+    console.error('[Match] Assignment failed:', updateErr);
+    return { matched: false };
   }
 
-  // 6. Notify stander
+  // Notifications
+  const clientPhone = (booking as any).client?.phone;
+  const standerPhone = (chosen as any).user?.phone;
+  const locationName = (booking as any).location?.name ?? 'your location';
+  const standerName = (chosen as any).user?.name ?? 'Your Stander';
+
+  // Client DB Notify
   await supabaseAdmin.from('notifications').insert({
-    user_id: standerId,
-    type:    'JOB_AVAILABLE',
-    message: `New job! ${locationName} at ${startFormatted} — ₹${payoutRupees} payout`,
+    user_id: booking.client_id,
+    type: 'MATCHED',
+    message: `${standerName} is heading to ${locationName}`
   });
 
-  // 7. Supabase Realtime broadcast (best-effort)
+  // Stander DB Notify
+  await supabaseAdmin.from('notifications').insert({
+    user_id: chosen.user_id,
+    type: 'JOB_AVAILABLE',
+    message: `New job matched! ${locationName}`
+  });
+
+  // Realtime Broadcast
   try {
-    await supabaseAdmin.channel(`booking-${bookingId}`).send({
-      type:    'broadcast',
-      event:   'matched',
+    await supabaseAdmin.channel(`booking-track:${bookingId}`).send({
+      type: 'broadcast',
+      event: 'matched',
       payload: {
-        type:   'matched',
         stander: {
-          name:           standerName,
-          avatar_initials: standerName.slice(0, 2).toUpperCase(),
-        },
-      },
+          name: standerName,
+          avatarInitials: (chosen as any).user?.avatar_initials ?? standerName.slice(0, 2).toUpperCase(),
+          rating: chosen.rating
+        }
+      }
     });
-  } catch {
-    // Realtime broadcast is best-effort
+  } catch (e) { /* ignore broadcast errors */ }
+
+  // WhatsApp
+  if (clientPhone) {
+    sendStanderMatched(clientPhone, {
+      standerName,
+      locationName,
+      startTime: new Date(booking.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+    });
   }
 
-  return { matched: true, standerId };
-}
+  if (standerPhone) {
+    sendJobAcceptedToStander(standerPhone, {
+      locationAddress: booking.location_address,
+      clientName: (booking as any).client?.name ?? 'Client',
+      estimatedHours: booking.estimated_hours.toString(),
+      payout: `₹${booking.stander_payout / 100}`
+    });
+  }
 
-async function getClientId(bookingId: string): Promise<string | null> {
-  const { data } = await supabaseAdmin
-    .from('bookings')
-    .select('client_id')
-    .eq('id', bookingId)
-    .single();
-  return data?.client_id ?? null;
+  return { matched: true, standerId: chosen.user_id };
 }

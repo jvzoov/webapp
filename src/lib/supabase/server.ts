@@ -1,16 +1,16 @@
-import { createServerClient as _createServerClient } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 
 /**
- * Server-side Supabase client for Server Components and Route Handlers.
- * Reads cookies asynchronously (Next.js 15+ async cookies() API).
+ * Server-side Supabase client for Server Components, Route Handlers, and Actions.
+ * Correctly handles cookies via Next.js 15+ async cookies() API.
  */
-export async function createServerClient(): Promise<SupabaseClient<Database>> {
+export async function createServerSupabaseClient(): Promise<SupabaseClient<Database>> {
   const cookieStore = await cookies();
 
-  return _createServerClient<Database>(
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -24,7 +24,7 @@ export async function createServerClient(): Promise<SupabaseClient<Database>> {
               cookieStore.set(name, value, options)
             );
           } catch {
-            // Server Components can't set cookies — safe to ignore
+            // This can be ignored if you have middleware refreshing user sessions.
           }
         },
       },

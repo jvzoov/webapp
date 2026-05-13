@@ -24,48 +24,21 @@ interface Props {
 
 export default function BottomNav({ role }: Props) {
   const pathname = usePathname();
-  const tabs     = role === 'client' ? CLIENT_TABS : STANDER_TABS;
+  const tabs = role === 'client' ? CLIENT_TABS : STANDER_TABS;
 
   return (
-    <nav
-      style={{
-        position:      'sticky',
-        bottom:        0,
-        zIndex:        40,
-        background:    '#fff',
-        borderTop:     '1px solid #D4CFC6',
-        display:       'flex',
-        justifyContent:'space-around',
-        paddingBottom: 'env(safe-area-inset-bottom)',
-      }}
-    >
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#D4CFC6] flex justify-around pb-[env(safe-area-inset-bottom)]">
       {tabs.map((tab) => {
         const active = pathname === tab.href || pathname.startsWith(tab.href + '/');
         return (
           <Link
             key={tab.href}
             href={tab.href}
-            style={{
-              flex:          1,
-              display:       'flex',
-              flexDirection: 'column',
-              alignItems:    'center',
-              padding:       '10px 0 8px',
-              textDecoration:'none',
-              color:         active ? '#FF6B00' : '#B8B4B0',
-              transition:    'color 0.15s',
-            }}
+            className={`flex-1 flex flex-col items-center pt-2.5 pb-2 transition-colors
+              ${active ? 'text-[#FF6B00]' : 'text-[#B8B4B0]'}`}
           >
-            <span style={{ fontSize: '20px', lineHeight: 1 }}>{tab.icon}</span>
-            <span
-              style={{
-                fontFamily:    'DM Mono, monospace',
-                fontSize:      '9px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                marginTop:     '3px',
-              }}
-            >
+            <span className="text-xl leading-none">{tab.icon}</span>
+            <span className="font-mono text-[9px] uppercase tracking-[.08em] mt-1">
               {tab.label}
             </span>
           </Link>

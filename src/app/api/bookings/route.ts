@@ -1,27 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { createOrder } from '@/lib/razorpay';
+import { razorpay } from '@/lib/razorpay';
 
 const schema = z.object({
   locationId:      z.string().uuid(),
-  locationAddress: z.string().min(5),
+  locationAddress: z.string().min(10),
   startTime:       z.string().datetime(),
   estimatedHours:  z.coerce.number().min(1).max(8),
-  instructions:    z.string().optional(),
+  instructions:    z.string().max(200).optional(),
 });
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || session.user.role !== 'CLIENT') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const userId = (session.user as any).id as string;
-  const userRole = (session.user as any).role as string;
-  if (userRole !== 'CLIENT') {
-    return NextResponse.json({ error: 'Only clients can create bookings' }, { status: 403 });
-  }
+
+  const userId = session.user.id;
 
   let body: unknown;
   try { body = await req.json(); } catch {
@@ -35,13 +32,16 @@ export async function POST(req: NextRequest) {
 
   const { locationId, locationAddress, startTime, estimatedHours, instructions } = parsed.data;
 
-  // Calculate amounts (in paise)
-  const totalRupees    = estimatedHours * 200 + 49;
-  const totalAmount    = totalRupees * 100;
-  const standerPayout  = Math.round(estimatedHours * 200 * 0.8 * 100);
-  const platformFee    = totalAmount - standerPayout;
+  // 1. Calculate Amounts (Paise)
+  const basePrice     = estimatedHours * 200;
+  const bookingFee    = 49;
+  const totalRupees   = basePrice + bookingFee;
+  const totalAmount   = totalRupees * 100;
+  
+  const standerPayout = estimatedHours * 200 * 0.8 * 100;
+  const platformFee   = (estimatedHours * 200 * 0.2 + 49) * 100;
 
-  // Create booking row
+  // 2. Create Booking (Pending Payment)
   const { data: booking, error: bookingErr } = await supabaseAdmin
     .from('bookings')
     .insert({
@@ -61,28 +61,31 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (bookingErr || !booking) {
-    console.error('Booking insert error:', bookingErr);
+    console.error('[Bookings] Insert error:', bookingErr);
     return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 });
   }
 
-  // Create Razorpay order
-  let razorpayOrder: any;
+  // 3. Create Razorpay Order
   try {
-    razorpayOrder = await createOrder(totalAmount, booking.id);
+    const order = await razorpay.orders.create({
+      amount:   totalAmount,
+      currency: 'INR',
+      receipt:  booking.id,
+    });
+
+    // Update booking with Order ID
+    await supabaseAdmin
+      .from('bookings')
+      .update({ razorpay_order_id: order.id })
+      .eq('id', booking.id);
+
+    return NextResponse.json({
+      bookingId:       booking.id,
+      razorpayOrderId: order.id,
+      amount:          totalAmount,
+    });
   } catch (err) {
-    console.error('Razorpay order error:', err);
-    return NextResponse.json({ error: 'Failed to create payment order' }, { status: 500 });
+    console.error('[Bookings] Razorpay error:', err);
+    return NextResponse.json({ error: 'Failed to initiate payment' }, { status: 500 });
   }
-
-  // Store order ID in booking
-  await supabaseAdmin
-    .from('bookings')
-    .update({ razorpay_order_id: razorpayOrder.id })
-    .eq('id', booking.id);
-
-  return NextResponse.json({
-    bookingId:       booking.id,
-    razorpayOrderId: razorpayOrder.id,
-    amount:          totalAmount,
-  });
 }

@@ -1,149 +1,100 @@
 'use client';
 
-import { useState } from 'react';
-import toast from 'react-hot-toast';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Avatar } from '@/components/ui/Avatar';
+import { format } from 'date-fns';
+import { formatINR } from '@/lib/utils';
 import type { BookingWithDetails } from '@/types/database';
 
 interface Props {
   job: BookingWithDetails;
-  onAccept: (jobId: string) => void;
+  distance?: string;
+  onAccept: (jobId: string) => Promise<void>;
+  onSkip: (jobId: string) => void;
+  isLoading: boolean;
 }
 
-export default function JobCard({ job, onAccept }: Props) {
-  const [loading, setLoading] = useState(false);
-
-  async function handleAccept() {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/jobs/${job.id}/accept`, { method: 'POST' });
-      const data = await res.json();
-
-      if (!res.ok) {
-        toast.error(data.error ?? 'Failed to accept job');
-        return;
-      }
-
-      toast.success(`Job accepted! Head to ${job.location?.name}`);
-      onAccept(job.id);
-    } catch {
-      toast.error('Network error');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const startFormatted = new Date(job.start_time).toLocaleTimeString('en-IN', {
-    hour: '2-digit', minute: '2-digit', hour12: false,
-  });
+export default function JobCard({ job, distance, onAccept, onSkip, isLoading }: Props) {
+  const standerPayout = job.stander_payout;
+  const startTime = new Date(job.start_time);
 
   return (
-    <div
-      className="animate-slide-down"
-      style={{
-        background:   '#fff',
-        border:       '1px solid #D4CFC6',
-        borderRadius: '10px',
-        padding:      '18px',
-        marginBottom: '12px',
-        position:     'relative',
-        overflow:     'hidden',
-      }}
-    >
+    <Card className="hover:shadow-md transition-shadow relative overflow-hidden">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+      <div className="flex justify-between items-start mb-4">
         <div>
-          <div style={{ fontWeight: 600, fontSize: '16px' }}>{job.location?.name}</div>
-          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '12px', color: '#8A8480', marginTop: '2px' }}>
-            Starts {startFormatted}
-          </div>
+          <h3 className="font-bold text-lg text-[#1A1612] leading-tight">
+            {job.location?.name || 'Unknown Location'}
+          </h3>
+          <p className="font-mono text-[11px] text-[#8A8480] uppercase tracking-wider mt-0.5">
+            {distance ? `${distance} · ` : ''}Starts {format(startTime, 'HH:mm')}
+          </p>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '28px', color: '#1A7A4A', lineHeight: 1 }}>
-            ₹{Math.round(job.stander_payout / 100)}
-          </div>
+        <div className="font-bebas text-2xl text-[#1A7A4A]">
+          {formatINR(standerPayout)}
         </div>
       </div>
 
       {/* Details Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', margin: '16px 0', padding: '12px 0', borderTop: '1px dashed #D4CFC6', borderBottom: '1px dashed #D4CFC6' }}>
-        <div>
-          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '10px', color: '#8A8480', textTransform: 'uppercase', marginBottom: '2px' }}>
-            Duration
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        {[
+          { label: 'Duration', value: `${job.estimated_hours} Hours` },
+          { label: 'Purpose', value: job.instructions ? 'Specific' : 'General' },
+          { label: 'Est. Queue', value: (job as any).location?.avg_wait_hours || '1-2h' },
+          { label: 'Payment', value: 'On Completion' },
+        ].map((item) => (
+          <div key={item.label} className="bg-[#F7F4EE] rounded-lg p-2.5 border border-[#D4CFC6]/30">
+            <p className="text-[9px] font-mono uppercase text-[#8A8480] tracking-widest mb-1">{item.label}</p>
+            <p className="text-xs font-semibold text-[#5a4030]">{item.value}</p>
           </div>
-          <div style={{ fontSize: '14px', fontWeight: 500 }}>{job.estimated_hours}h max</div>
-        </div>
-        <div>
-          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '10px', color: '#8A8480', textTransform: 'uppercase', marginBottom: '2px' }}>
-            Est Queue
-          </div>
-          <div style={{ fontSize: '14px', fontWeight: 500 }}>{job.location?.avg_wait_hours ?? 'Varies'}</div>
-        </div>
+        ))}
       </div>
 
-      {/* Client Info */}
-      <div style={{ background: 'rgba(59, 130, 246, 0.08)', borderRadius: '8px', padding: '10px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-        <div
-          style={{
-            width: '32px', height: '32px', borderRadius: '50%', background: '#3b82f6', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Bebas Neue, sans-serif', fontSize: '14px'
-          }}
-        >
-          {job.client?.avatar_initials ?? job.client?.name?.slice(0, 2).toUpperCase() ?? 'CL'}
+      {/* Client Bar */}
+      <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <Avatar 
+            initials={job.client?.avatar_initials ?? job.client?.name?.slice(0, 2).toUpperCase() ?? '??'} 
+            className="w-8 h-8 text-[11px] bg-blue-600"
+          />
+          <div>
+            <p className="text-xs font-bold text-blue-900">{job.client?.name}</p>
+            <p className="text-[10px] text-blue-700/70">Verified Client</p>
+          </div>
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '13px', fontWeight: 500 }}>{job.client?.name ?? 'Client'}</div>
-          <div style={{ fontSize: '11px', color: '#3b82f6' }}>Verified Client</div>
-        </div>
-        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', background: '#22c55e', color: '#fff', padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.05em' }}>
-          NEW
-        </span>
+        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-2 py-0">NEW</Badge>
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '10px' }}>
-        <button
-          disabled={loading}
-          style={{
-            flex: 1,
-            background: 'transparent',
-            border: '1px solid #D4CFC6',
-            borderRadius: '8px',
-            color: '#1A1612',
-            fontFamily: 'Bebas Neue, sans-serif',
-            fontSize: '18px',
-            padding: '12px 0',
-            cursor: loading ? 'not-allowed' : 'pointer',
-          }}
+      <div className="flex gap-3">
+        <Button 
+          variant="outline" 
+          onClick={() => onSkip(job.id)}
+          disabled={isLoading}
+          className="flex-1 py-4 text-xs font-mono tracking-widest text-[#8A8480] border-[#D4CFC6] hover:bg-black/5 uppercase h-auto"
         >
           SKIP
-        </button>
-        <button
-          onClick={handleAccept}
-          disabled={loading}
-          style={{
-            flex: 2,
-            background: '#1A7A4A',
-            border: 'none',
-            borderRadius: '8px',
-            color: '#fff',
-            fontFamily: 'Bebas Neue, sans-serif',
-            fontSize: '18px',
-            padding: '12px 0',
-            cursor: loading ? 'not-allowed' : 'pointer',
-          }}
+        </Button>
+        <Button 
+          onClick={() => onAccept(job.id)}
+          loading={isLoading}
+          disabled={isLoading}
+          className="flex-[1.5] py-4 text-xs font-mono tracking-widest bg-[#1A7A4A] hover:bg-[#145d38] border-none uppercase shadow-lg shadow-green-900/10 h-auto"
         >
-          {loading ? 'ACCEPTING…' : 'ACCEPT JOB'}
-        </button>
+          ACCEPT
+        </Button>
       </div>
 
-      {/* Overlay if someone else matched it */}
+      {/* Availability Overlay */}
       {job.status !== 'PENDING_MATCH' && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-          <div style={{ background: '#1A1612', color: '#fff', padding: '8px 16px', borderRadius: '100px', fontSize: '13px', fontWeight: 500 }}>
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] flex items-center justify-center z-10">
+          <Badge className="bg-[#1A1612] text-white px-4 py-2 rounded-full text-xs font-bold border-none">
             No longer available
-          </div>
+          </Badge>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

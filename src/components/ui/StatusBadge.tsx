@@ -1,46 +1,54 @@
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { BookingStatus } from '@/types/database';
 
-export interface StatusBadgeProps {
+interface Props {
   status: BookingStatus;
   className?: string;
 }
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const base = 'font-mono text-[10px] px-2 py-0.5 rounded tracking-widest inline-block';
+const statusConfig: Record<BookingStatus, { label: string; className: string; variant: any }> = {
+  PENDING_MATCH: { 
+    label: 'Finding Stander', 
+    className: 'border-saffron text-saffron animate-pulse-saffron font-mono text-[10px] tracking-widest', 
+    variant: 'outline' 
+  },
+  MATCHED: { 
+    label: 'Matched', 
+    className: 'bg-blue-50 text-blue-700 border-blue-200 border', 
+    variant: 'default' 
+  },
+  ACTIVE: { 
+    label: 'In Progress', 
+    className: 'bg-green-50 text-green-700 border-green-200 border', 
+    variant: 'default' 
+  },
+  ALERT: { 
+    label: 'Your Turn Soon', 
+    className: 'bg-red-50 text-red-700 border-red-200 border animate-pulse', 
+    variant: 'default' 
+  },
+  COMPLETED: { 
+    label: 'Completed', 
+    className: 'bg-gray-100 text-gray-500 border-gray-200 border', 
+    variant: 'default' 
+  },
+  CANCELLED: { 
+    label: 'Cancelled', 
+    className: 'bg-red-50 text-red-700 border-red-100 border', 
+    variant: 'default' 
+  },
+};
 
-  const styles: Record<BookingStatus, { label: string; cls: string }> = {
-    PENDING_MATCH: {
-      label: 'FINDING STANDER',
-      cls: 'border border-dashed border-[#FF6B00] text-[#FF6B00] animate-pulse',
-    },
-    MATCHED: {
-      label: 'MATCHED',
-      cls: 'bg-blue-500/10 text-blue-600 border border-blue-500/20',
-    },
-    ACTIVE: {
-      label: 'ACTIVE',
-      cls: 'bg-[#1A7A4A]/10 text-[#1A7A4A] border border-[#1A7A4A]/20',
-    },
-    ALERT: {
-      label: 'ALERT',
-      cls: 'bg-red-500/10 text-red-600 border border-red-500/20',
-    },
-    COMPLETED: {
-      label: 'COMPLETED',
-      cls: 'bg-[#F7F4EE] text-[#8A8480] border border-[#D4CFC6]',
-    },
-    CANCELLED: {
-      label: 'CANCELLED',
-      cls: 'bg-red-500/10 text-red-600',
-    },
-  };
-
-  const config = styles[status] || { label: status, cls: 'bg-gray-100 text-gray-500' };
+export function StatusBadge({ status, className }: Props) {
+  const config = statusConfig[status] || { label: status, className: '', variant: 'default' };
 
   return (
-    <span className={cn(base, config.cls, className)}>
+    <Badge 
+      variant={config.variant} 
+      className={cn('px-2 py-0.5 rounded uppercase font-bold', config.className, className)}
+    >
       {config.label}
-    </span>
+    </Badge>
   );
 }

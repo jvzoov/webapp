@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 import type { Location } from '@/types/database';
 
 interface Props {
@@ -10,85 +11,54 @@ interface Props {
 
 export default function LocationGrid({ locations }: Props) {
   const router = useRouter();
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  function handleBook() {
-    if (!selected) return;
-    router.push(`/client/book?location=${selected}`);
-  }
+  const selectedLoc = locations.find(l => l.id === selectedId);
+
+  const handleBook = () => {
+    if (selectedId && selectedLoc) {
+      router.push(`/client/book?locationId=${selectedId}&locationName=${encodeURIComponent(selectedLoc.name)}`);
+    }
+  };
 
   return (
-    <>
-      {/* Grid */}
-      <div
-        style={{
-          display:             'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap:                 '10px',
-          padding:             '0 16px',
-        }}
-      >
+    <div className="mt-4">
+      <div className="grid grid-cols-2 gap-3">
         {locations.map((loc) => {
-          const isSelected = selected === loc.id;
+          const isSelected = selectedId === loc.id;
           return (
             <button
               key={loc.id}
-              onClick={() => setSelected(isSelected ? null : loc.id)}
-              style={{
-                background:   isSelected ? 'rgba(255,107,0,0.08)' : '#fff',
-                border:       `1.5px solid ${isSelected ? '#FF6B00' : '#D4CFC6'}`,
-                borderRadius: '10px',
-                padding:      '14px',
-                textAlign:    'left',
-                cursor:       'pointer',
-                transition:   'all 0.18s ease',
-                outline:      'none',
-              }}
+              onClick={() => setSelectedId(loc.id)}
+              className={`flex flex-col items-center p-5 rounded-[10px] border transition-all text-center
+                ${isSelected 
+                  ? 'border-[#FF6B00] bg-[#FF6B00]/5 ring-1 ring-[#FF6B00]' 
+                  : 'border-[#D4CFC6] bg-white hover:border-[#FF6B00]/50'}`}
             >
-              <div style={{ fontSize: '22px', marginBottom: '6px' }}>{loc.icon}</div>
-              <div style={{ fontWeight: 600, fontSize: '13px', color: '#1A1612', marginBottom: '2px' }}>
+              <span className="text-3xl mb-3 grayscale-0 group-hover:scale-110 transition-transform">
+                {loc.icon || '📍'}
+              </span>
+              <span className="font-semibold text-[13px] text-[#1A1612] leading-tight mb-1">
                 {loc.name}
-              </div>
-              <div
-                style={{
-                  fontFamily: 'DM Mono, monospace',
-                  fontSize:   '11px',
-                  color:      '#B8B4B0',
-                  marginBottom:'4px',
-                }}
-              >
-                Avg {loc.avg_wait_hours}
-              </div>
-              <div style={{ fontSize: '11px', color: '#1A7A4A', fontWeight: 500 }}>
-                ● Standers nearby
-              </div>
+              </span>
+              <span className="font-mono text-[9px] text-[#8A8480] uppercase tracking-wider">
+                {loc.avg_wait_hours || '1-2h'} wait
+              </span>
             </button>
           );
         })}
       </div>
 
-      {/* Book CTA */}
-      <div style={{ padding: '20px 16px 0' }}>
-        <button
+      <div className="mt-8 pb-32">
+        <Button
           onClick={handleBook}
-          disabled={!selected}
-          style={{
-            width:         '100%',
-            background:    selected ? '#FF6B00' : '#D4CFC6',
-            color:         '#fff',
-            fontFamily:    'Bebas Neue, sans-serif',
-            fontSize:      '20px',
-            letterSpacing: '0.06em',
-            border:        'none',
-            borderRadius:  '10px',
-            padding:       '14px 0',
-            cursor:        selected ? 'pointer' : 'not-allowed',
-            transition:    'background 0.2s',
-          }}
+          disabled={!selectedId}
+          className={`w-full py-6 text-xl tracking-[.06em] shadow-lg shadow-[#FF6B00]/20
+            ${!selectedId ? 'bg-[#D4CFC6] cursor-not-allowed' : 'bg-[#FF6B00] hover:bg-[#e05e00]'}`}
         >
-          BOOK A STANDER →
-        </button>
+          {selectedId ? 'BOOK A STANDER' : 'SELECT A LOCATION'}
+        </Button>
       </div>
-    </>
+    </div>
   );
 }

@@ -1,32 +1,32 @@
-import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Public routes — no session required
+// Public paths — no session required
 const PUBLIC_ROUTES = ['/', '/login', '/register'];
-const PUBLIC_PREFIXES = ['/api/', '/_next/', '/favicon'];
+
+function isPublic(pathname: string): boolean {
+  if (PUBLIC_ROUTES.includes(pathname)) return true;
+  if (pathname.startsWith('/api/auth/'))     return true;
+  if (pathname.startsWith('/api/webhooks/')) return true;
+  return false;
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public routes and Next.js internals
-  if (
-    PUBLIC_ROUTES.includes(pathname) ||
-    PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
-  ) {
-    return NextResponse.next();
-  }
+  if (isPublic(pathname)) return NextResponse.next();
 
   const session = await auth();
 
   // No session → redirect to login
-  if (!session) {
+  if (!session?.user) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  const role = (session.user as any)?.role as string | undefined;
+  const { role } = session.user;
 
   // /client/* — CLIENT only
   if (pathname.startsWith('/client') && role !== 'CLIENT') {
@@ -50,6 +50,6 @@ export default proxy;
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

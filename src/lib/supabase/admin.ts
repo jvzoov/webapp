@@ -3,12 +3,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 
 /**
- * Service-role Supabase client — bypasses RLS.
- * ONLY use inside /app/api/* Route Handlers, NEVER in Client Components.
+ * Service-role Supabase client that bypasses Row-Level Security (RLS).
+ * MUST ONLY be used on the server (API routes, background jobs).
  */
 let adminClient: SupabaseClient<Database> | null = null;
 
-export function getSupabaseAdmin(): SupabaseClient<Database> {
+function getSupabaseAdmin(): SupabaseClient<Database> {
   if (adminClient) return adminClient;
 
   adminClient = createClient<Database>(
@@ -25,5 +25,4 @@ export function getSupabaseAdmin(): SupabaseClient<Database> {
   return adminClient;
 }
 
-// Named export for convenience
 export const supabaseAdmin = getSupabaseAdmin();

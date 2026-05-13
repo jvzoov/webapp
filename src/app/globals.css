@@ -1,114 +1,98 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@layer base {
+  :root {
+    --background: 40 30% 96%;        /* #F7F4EE */
+    --foreground: 20 15% 9%;         /* #1A1612 */
+    
+    --card: 40 30% 96%;
+    --card-foreground: 20 15% 9%;
+    
+    --popover: 40 30% 96%;
+    --popover-foreground: 20 15% 9%;
+    
+    --primary: 24 100% 50%;          /* #FF6B00 saffron */
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 40 15% 90%;
+    --secondary-foreground: 20 15% 9%;
+    
+    --muted: 40 15% 90%;
+    --muted-foreground: 20 15% 45%;
+    
+    --accent: 24 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 4 80% 62%;        /* #f5756e */
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 40 20% 83%;            /* #D4CFC6 */
+    --input: 40 20% 83%;
+    --ring: 24 100% 50%;
+    
+    --radius: 0.625rem;
+  }
 
-/* ── QueuePe Design Tokens ───────────────────────────────── */
-:root {
-  /* Brand */
-  --saffron:    #FF6B00;
-  --saffron-10: rgba(255,107,0,0.10);
-  --saffron-20: rgba(255,107,0,0.20);
-  --saffron-30: rgba(255,107,0,0.30);
-  --green:      #1A7A4A;
-  --green-10:   rgba(26,122,74,0.10);
-
-  /* Dark surfaces (auth / dark pages) */
-  --bg:         #0c0a06;
-  --surface:    #1f180e;
-  --border-d:   #362a16;
-  --ink:        #f5ede0;
-  --ink2:       #a08060;
-
-  /* Light surfaces (client/stander app) */
-  --app-bg:     #F7F4EE;
-  --app-surface:#FFFFFF;
-  --app-border: #D4CFC6;
-  --app-ink:    #1A1612;
-  --app-ink2:   #8A8480;
-  --app-ink3:   #B8B4B0;
-
-  /* Topbar */
-  --topbar:     #1A1612;
-
-  /* Fonts */
-  --font-display: 'Bebas Neue', sans-serif;
-  --font-body:    'Noto Sans', sans-serif;
-  --font-mono:    'DM Mono', monospace;
-
-  /* Radii */
-  --radius: 0.625rem;
+  .dark {
+    --background: 30 25% 6%;         /* #0c0a06 */
+    --foreground: 36 80% 93%;        /* #f5ede0 */
+    
+    --card: 30 25% 9%;
+    --card-foreground: 36 80% 93%;
+    
+    --popover: 30 25% 9%;
+    --popover-foreground: 36 80% 93%;
+    
+    --primary: 24 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 30 25% 15%;
+    --secondary-foreground: 36 80% 93%;
+    
+    --muted: 30 25% 15%;
+    --muted-foreground: 36 20% 60%;
+    
+    --accent: 24 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 36 80% 93%;
+    
+    --border: 25 30% 20%;
+    --input: 25 30% 20%;
+    --ring: 24 100% 50%;
+  }
 }
 
-/* ── Tailwind Theme Mapping ───────────────────────────────── */
-@theme inline {
-  --color-background: var(--app-bg);
-  --color-foreground:  var(--app-ink);
-  --color-border:      var(--app-border);
-  --font-sans:         var(--font-body);
-  --font-mono:         var(--font-mono);
-  --font-display:      var(--font-display);
-  --radius-sm:  calc(var(--radius) * 0.6);
-  --radius-md:  calc(var(--radius) * 0.8);
-  --radius-lg:  var(--radius);
-  --radius-xl:  calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-}
-
-/* ── Base ─────────────────────────────────────────────────── */
 @layer base {
   * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-  html {
-    font-family: var(--font-body);
-    -webkit-tap-highlight-color: transparent;
+    @apply border-border;
   }
   body {
-    background: var(--app-bg);
-    color: var(--app-ink);
-    line-height: 1.5;
+    @apply bg-background text-foreground font-body;
   }
-  .font-display { font-family: var(--font-display); }
-  .font-body    { font-family: var(--font-body); }
-  .font-mono    { font-family: var(--font-mono); }
 }
 
-/* ── Custom Animations ────────────────────────────────────── */
-@keyframes slideUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
-}
-@keyframes slideDown {
-  from { transform: translateY(-24px); opacity: 0; }
-  to   { transform: translateY(0);     opacity: 1; }
-}
-@keyframes pulseRed {
-  0%,100% { background-color: #dc2626; }
-  50%      { background-color: #b91c1c; }
-}
-@keyframes gpsGlow {
-  0%,100% { box-shadow: 0 0 0 0 rgba(26,122,74,0.6); }
-  50%      { box-shadow: 0 0 0 8px rgba(26,122,74,0); }
-}
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+/* Custom Animations */
+@keyframes pulse-saffron {
+  0% { box-shadow: 0 0 0 0 rgba(255, 107, 0, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 107, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 107, 0, 0); }
 }
 
-.animate-slide-up    { animation: slideUp  0.35s cubic-bezier(.32,.72,0,1) forwards; }
-.animate-slide-down  { animation: slideDown 0.25s ease forwards; }
-.animate-pulse-red   { animation: pulseRed 1.2s ease-in-out infinite; }
-.animate-gps-glow    { animation: gpsGlow  1.5s ease-in-out infinite; }
-.animate-fade-in     { animation: fadeIn   0.2s ease forwards; }
-
-/* ── Mobile App Shell ─────────────────────────────────────── */
-.app-shell {
-  max-width: 480px;
-  min-height: 100dvh;
-  margin-inline: auto;
-  position: relative;
-  background: var(--app-bg);
+.animate-pulse-saffron {
+  animation: pulse-saffron 2s infinite;
 }
+
+/* ─── PWA & Mobile Optimization ────────────────────────────── */
+
+.bottom-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.hero { padding-top: env(safe-area-inset-top, 0px); }
+
+button, a, [role="button"] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+
+.app-shell { max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; }
+@media (min-width: 481px) { .app-shell { border-left: 1px solid var(--border); border-right: 1px solid var(--border); } }
+
+.tap-target { min-height: 44px; min-width: 44px; }
+.font-display { font-family: 'Bebas Neue', sans-serif; }

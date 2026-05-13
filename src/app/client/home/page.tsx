@@ -1,4 +1,4 @@
-import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import TopBar from '@/components/shared/TopBar';
@@ -18,7 +18,7 @@ export default async function ClientHomePage() {
   const session = await auth();
   if (!session?.user) redirect('/login');
 
-  const user     = session.user as any;
+  const { user } = session;
   const locations = await getLocations();
 
   return (

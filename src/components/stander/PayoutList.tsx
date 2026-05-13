@@ -1,6 +1,7 @@
-'use client';
-
 import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/Separator';
+import { formatINR } from '@/lib/utils';
 import type { BookingWithDetails } from '@/types/database';
 
 interface Props {
@@ -10,47 +11,44 @@ interface Props {
 export default function PayoutList({ bookings }: Props) {
   if (bookings.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px 0', color: '#8A8480', fontSize: '14px' }}>
-        No payouts yet. Complete a job to start earning!
+      <div className="mx-4 mt-8 py-12 text-center border-2 border-dashed border-[#D4CFC6] rounded-xl opacity-60">
+        <span className="text-4xl mb-4 block">💰</span>
+        <p className="font-mono text-[10px] text-[#8A8480] uppercase tracking-widest">
+          No payouts yet this month
+        </p>
       </div>
     );
   }
 
   return (
-    <div>
-      <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', color: '#8A8480', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '12px', padding: '0 4px' }}>
-        Recent Payouts
-      </div>
+    <div className="mx-4 mt-8 space-y-4 pb-24">
+      <h3 className="font-mono text-[10px] text-[#8A8480] uppercase tracking-widest px-1">
+        RECENT PAYOUTS
+      </h3>
       
-      <div style={{ background: '#fff', border: '1px solid #D4CFC6', borderRadius: '10px', overflow: 'hidden' }}>
-        {bookings.map((b, i) => (
-          <div
-            key={b.id}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '16px',
-              borderBottom: i < bookings.length - 1 ? '1px solid #D4CFC6' : 'none',
-            }}
-          >
-            <div>
-              <div style={{ fontWeight: 600, fontSize: '14px', color: '#1A1612' }}>
-                {b.location?.name ?? 'Unknown Location'}
+      <div className="bg-white border border-[#D4CFC6] rounded-xl overflow-hidden">
+        {bookings.map((booking, idx) => (
+          <div key={booking.id}>
+            <div className="p-4 flex justify-between items-center bg-white hover:bg-[#F7F4EE]/30 transition-colors">
+              <div>
+                <h4 className="font-bold text-sm text-[#1A1612]">
+                  {booking.location?.name || 'Queue Standing'}
+                </h4>
+                <p className="text-[10px] text-[#8A8480] mt-0.5">
+                  {format(new Date(booking.created_at), 'dd MMM')} · {booking.estimated_hours}hr job
+                </p>
               </div>
-              <div style={{ fontSize: '12px', color: '#8A8480', marginTop: '2px' }}>
-                {format(new Date(b.created_at), 'MMM d')} · {b.estimated_hours}h
-              </div>
-            </div>
-            
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '20px', color: '#1A7A4A', lineHeight: 1 }}>
-                ₹{Math.round(b.stander_payout / 100)}
-              </div>
-              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', background: '#e6f4ea', color: '#1A7A4A', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginTop: '4px' }}>
-                PAID
+              
+              <div className="text-right flex flex-col items-end gap-1.5">
+                <span className="font-bebas text-xl text-[#1A7A4A]">
+                  {formatINR(booking.stander_payout)}
+                </span>
+                <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-1.5 py-0 text-[9px]">
+                  PAID
+                </Badge>
               </div>
             </div>
+            {idx < bookings.length - 1 && <Separator />}
           </div>
         ))}
       </div>

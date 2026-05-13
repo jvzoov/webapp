@@ -1,4 +1,4 @@
-import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import TopBar from '@/components/shared/TopBar';
@@ -27,9 +27,8 @@ export default async function HistoryPage() {
   const session = await auth();
   if (!session?.user) redirect('/login');
 
-  const userId   = (session.user as any).id as string;
-  const user     = session.user as any;
-  const bookings = await getHistory(userId);
+  const { user } = session;
+  const bookings = await getHistory(user.id);
 
   return (
     <div className="app-shell" style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>

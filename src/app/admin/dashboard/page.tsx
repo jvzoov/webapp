@@ -1,9 +1,10 @@
-import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import type { BookingWithDetails } from '@/types/database';
+import type { BookingWithDetails, StanderProfile } from '@/types/database';
+import { formatINR } from '@/lib/utils';
 
 async function getAdminData() {
   const { data: bookings } = await supabaseAdmin
@@ -30,7 +31,7 @@ async function getAdminData() {
 
 export default async function AdminDashboard() {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'ADMIN') {
+  if (!session?.user || session.user.role !== 'ADMIN') {
     redirect('/login');
   }
 
@@ -39,7 +40,10 @@ export default async function AdminDashboard() {
   const activeBookings = bookings.filter(b => ['MATCHED', 'ACTIVE', 'ALERT'].includes(b.status));
   const pendingBookings = bookings.filter(b => b.status === 'PENDING_MATCH' && b.payment_status === 'PAID');
 
-  const onlineStanders = standers.filter(s => (s.stander_profiles as any)?.[0]?.is_online);
+  const onlineStanders = standers.filter(s => {
+    const profile = (s.stander_profiles as unknown as StanderProfile[]);
+    return profile?.[0]?.is_online;
+  });
 
   return (
     <div className="min-h-screen bg-[#F7F4EE]">
@@ -83,7 +87,7 @@ export default async function AdminDashboard() {
                 
                 <div className="flex items-center gap-4 text-right">
                   <div>
-                    <div className="font-display text-xl text-[#FF6B00]">₹{Math.round(b.total_amount / 100)}</div>
+                    <div className="font-display text-xl text-[#FF6B00]">{formatINR(b.total_amount)}</div>
                     <div className="text-xs text-[#8A8480]">Amount</div>
                   </div>
                   

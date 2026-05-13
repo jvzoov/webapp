@@ -1,4 +1,4 @@
-import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import TopBar from '@/components/shared/TopBar';
@@ -44,7 +44,7 @@ async function getStanderData(userId: string) {
 
   return {
     profile:       profile as StanderProfile,
-    todayEarnings: Math.round(todayEarnings / 100),
+    todayEarnings: todayEarnings,
     todayCount,
     jobs:          (jobs ?? []) as BookingWithDetails[],
   };
@@ -54,7 +54,7 @@ export default async function StanderHomePage() {
   const session = await auth();
   if (!session?.user) redirect('/login');
 
-  const user = session.user as any;
+  const { user } = session;
   const { profile, todayEarnings, todayCount, jobs } = await getStanderData(user.id);
 
   return (

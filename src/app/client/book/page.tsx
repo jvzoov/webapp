@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -8,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Script from 'next/script';
 import toast, { Toaster } from 'react-hot-toast';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { formatINR } from '@/lib/utils';
 
 const schema = z.object({
   locationAddress: z.string().min(5, 'Please enter the specific address'),
@@ -75,8 +73,7 @@ export default function BookPage() {
   });
 
   const hours = watch('estimatedHours') ?? 2;
-  const totalRupees   = hours * 200 + 49;
-  const standerPayout = Math.round(hours * 200 * 0.8);
+  const totalPaise = (hours * 200 + 49) * 100;
 
   // Fetch location name
   useEffect(() => {
@@ -157,7 +154,7 @@ export default function BookPage() {
     rzp.open();
   }
 
-  const user = session?.user as any;
+  const user = session?.user;
 
   return (
     <>
@@ -322,7 +319,7 @@ export default function BookPage() {
                 marginBottom:'12px',
               }}
             >
-              ₹{totalRupees}
+              {formatINR(totalPaise)}
             </div>
             <div style={{ fontSize: '12px', color: '#8A8480', lineHeight: 1.8 }}>
               {[
@@ -354,7 +351,7 @@ export default function BookPage() {
               marginBottom:  '32px',
             }}
           >
-            {isSubmitting ? 'PROCESSING…' : `PAY ₹${totalRupees} & CONFIRM`}
+            {isSubmitting ? 'PROCESSING…' : `PAY ${formatINR(totalPaise)} & CONFIRM`}
           </button>
         </form>
       </div>

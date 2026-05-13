@@ -1,4 +1,4 @@
-import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import TopBar from '@/components/shared/TopBar';
@@ -37,8 +37,8 @@ async function getEarningsData(userId: string) {
 
   return {
     profile:       profile as StanderProfile,
-    monthEarnings: Math.round(monthEarnings / 100),
-    avgPerJob:     Math.round(avg / 100),
+    monthEarnings: monthEarnings,
+    avgPerJob:     avg,
     jobs,
   };
 }
@@ -47,7 +47,7 @@ export default async function EarningsPage() {
   const session = await auth();
   if (!session?.user) redirect('/login');
 
-  const user = session.user as any;
+  const { user } = session;
   const { profile, monthEarnings, avgPerJob, jobs } = await getEarningsData(user.id);
 
   return (

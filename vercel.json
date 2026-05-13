@@ -4,5 +4,21 @@
       "path": "/api/cron/match",
       "schedule": "*/2 * * * *"
     }
+  ],
+  "functions": {
+    "src/app/api/**": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    }
   ]
 }

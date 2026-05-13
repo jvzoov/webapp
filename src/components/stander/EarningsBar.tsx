@@ -1,59 +1,35 @@
-'use client';
+import { formatINR } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 interface Props {
-  earnings: number; // in rupees
+  earnings: number; // in paise
   streak:   number;
   jobCount: number;
 }
 
 export default function EarningsBar({ earnings, streak, jobCount }: Props) {
   return (
-    <div
-      style={{
-        position:   'sticky',
-        top:        '52px', // below TopBar
-        zIndex:     30,
-        background: '#1A1612',
-        color:      '#fff',
-        padding:    '16px',
-        display:    'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-      }}
-    >
+    <div className="sticky top-[52px] z-30 bg-[#1A1612] text-white p-4 flex justify-between items-center border-b border-white/5">
       <div>
-        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>
+        <p className="text-[10px] text-white/50 uppercase tracking-widest font-mono mb-1">
           Today&apos;s Earnings
-        </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-          <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '36px', color: '#FF6B00', lineHeight: 1 }}>
-            ₹{earnings}
-          </div>
-          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
-            {jobCount} job{jobCount !== 1 ? 's' : ''} completed
-          </div>
+        </p>
+        <div className="flex items-baseline gap-2">
+          <span className="font-bebas text-4xl text-[#FF6B00] leading-none">
+            {formatINR(earnings)}
+          </span>
+          <span className="font-mono text-[10px] text-white/30 uppercase tracking-tight">
+            {jobCount} job{jobCount !== 1 ? 's' : ''}
+          </span>
         </div>
       </div>
 
-      <div
-        style={{
-          background:   'rgba(255,107,0,0.15)',
-          border:       '1px solid rgba(255,107,0,0.3)',
-          borderRadius: '100px',
-          padding:      '6px 12px',
-          display:      'flex',
-          alignItems:   'center',
-          gap:          '6px',
-        }}
-      >
-        <span style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '24px', color: '#FF6B00', lineHeight: 1 }}>
-          {streak}
-        </span>
-        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: '#FF6B00', textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: 1 }}>
+      <Badge className="bg-[#FF6B00]/10 text-[#FF6B00] border border-[#FF6B00]/30 rounded-full px-3 py-1.5 flex items-center gap-2">
+        <span className="font-bebas text-2xl leading-none pt-0.5">🔥 {streak}</span>
+        <span className="font-mono text-[8px] uppercase tracking-tighter leading-tight">
           DAY<br />STREAK
         </span>
-      </div>
+      </Badge>
     </div>
   );
 }

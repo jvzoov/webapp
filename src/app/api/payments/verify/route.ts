@@ -2,48 +2,75 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySignature } from '@/lib/razorpay';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { matchStanderToBooking } from '@/lib/matching';
+import { sendWATITemplate } from '@/lib/wati';
+import { formatINR } from '@/lib/utils';
 
 export async function POST(req: NextRequest) {
-  let body: any;
-  try { body = await req.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  let body: {
+    razorpay_order_id:   string;
+    razorpay_payment_id: string;
+    razorpay_signature:  string;
+    bookingId:           string;
+  };
+
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
   }
 
-  const {
-    razorpay_order_id,
-    razorpay_payment_id,
-    razorpay_signature,
-    bookingId,
-  } = body;
+  // 1. Verify Signature
+  const isValid = verifySignature(
+    body.razorpay_order_id,
+    body.razorpay_payment_id,
+    body.razorpay_signature
+  );
 
-  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !bookingId) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-  }
-
-  // Verify HMAC signature
-  const isValid = verifySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
   if (!isValid) {
     return NextResponse.json({ error: 'Invalid payment signature' }, { status: 400 });
   }
 
-  // Update booking
-  const { error } = await supabaseAdmin
+  // 2. Fetch booking and client details
+  const { data: booking, error: fetchErr } = await supabaseAdmin
+    .from('bookings')
+    .select('*, location:locations(name), client:users(phone)')
+    .eq('id', body.bookingId)
+    .single();
+
+  if (fetchErr || !booking) {
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+  }
+
+  // 3. Update status to PAID
+  const { error: updateErr } = await supabaseAdmin
     .from('bookings')
     .update({
       payment_status:      'PAID',
-      razorpay_payment_id: razorpay_payment_id,
+      razorpay_payment_id: body.razorpay_payment_id,
     })
-    .eq('id', bookingId);
+    .eq('id', body.bookingId);
 
-  if (error) {
-    console.error('Booking update error:', error);
-    return NextResponse.json({ error: 'Failed to update booking' }, { status: 500 });
+  if (updateErr) {
+    console.error('[Verify] Update error:', updateErr);
+    return NextResponse.json({ error: 'Failed to update booking status' }, { status: 500 });
   }
 
-  // Try to match stander
-  await matchStanderToBooking(bookingId).catch((err) =>
-    console.error('Matching error:', err)
-  );
+  // 4. Initiate Stander Matching (Fire & Forget)
+  matchStanderToBooking(body.bookingId).catch((err) => {
+    console.error('[Verify] Matching failed:', err);
+  });
 
-  return NextResponse.json({ success: true, bookingId });
+  // 5. Send WhatsApp Confirmation
+  const clientPhone  = (booking as any).client?.phone;
+  const locationName = (booking as any).location?.name ?? 'your location';
+  const totalDisplay = formatINR(booking.total_amount);
+
+  if (clientPhone) {
+    sendWATITemplate(clientPhone, 'booking_confirmed', [
+      { name: 'amount',   value: totalDisplay },
+      { name: 'location', value: locationName },
+    ]);
+  }
+
+  return NextResponse.json({ success: true, bookingId: body.bookingId });
 }

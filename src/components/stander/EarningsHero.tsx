@@ -1,73 +1,47 @@
 'use client';
 
-import { useState } from 'react';
-import WithdrawalModal from './WithdrawalModal';
+import { formatINR } from '@/lib/utils';
 
 interface Props {
-  totalEarningsRupees: number;
+  totalEarningsPaise: number;
   jobCount: number;
   avgPerJob: number;
   rating: number;
   onTimePercent: number;
   streak: number;
-  upiId:  string;
 }
 
-export default function EarningsHero({ totalEarningsRupees, jobCount, avgPerJob, rating, onTimePercent, streak, upiId }: Props) {
-  const [showWithdrawal, setShowWithdrawal] = useState(false);
+export default function EarningsHero({ 
+  totalEarningsPaise, 
+  jobCount, 
+  avgPerJob, 
+  rating, 
+  onTimePercent, 
+  streak 
+}: Props) {
   return (
-    <div style={{ background: '#1A1612', borderRadius: '10px', padding: '20px', color: '#fff', marginBottom: '24px' }}>
-      
-      <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '8px' }}>
+    <div className="bg-[#1A1612] mx-4 mt-4 rounded-[10px] p-5 text-white">
+      <p className="font-mono text-[11px] text-white/50 uppercase tracking-widest mb-2">
         Total Earned (This Month)
+      </p>
+      
+      <div className="font-bebas text-6xl text-[#FF6B00] leading-none mb-2">
+        {formatINR(totalEarningsPaise)}
       </div>
       
-      <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '64px', color: '#FF6B00', lineHeight: 1, marginBottom: '8px' }}>
-        ₹{totalEarningsRupees}
-      </div>
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
-        <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>
-          {jobCount} jobs · Avg ₹{avgPerJob}/job
-        </div>
-        <button
-          onClick={() => setShowWithdrawal(true)}
-          style={{
-            background: 'transparent',
-            border: '1px solid rgba(255,255,255,0.2)',
-            borderRadius: '6px',
-            color: '#fff',
-            fontSize: '10px',
-            fontFamily: 'DM Mono, monospace',
-            padding: '4px 8px',
-            cursor: 'pointer'
-          }}
-        >
-          PAYOUT SETTINGS
-        </button>
-      </div>
+      <p className="font-mono text-[12px] text-white/40 mb-6">
+        {jobCount} jobs · Avg {formatINR(avgPerJob)}/job
+      </p>
 
-      {showWithdrawal && (
-        <WithdrawalModal 
-          upiId={upiId}
-          balance={0}
-          onClose={() => setShowWithdrawal(false)}
-        />
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+      <div className="grid grid-cols-3 gap-2">
         {[
           { val: `${rating.toFixed(1)}★`, label: 'Rating' },
-          { val: `${onTimePercent}%`,      label: 'On-time' },
-          { val: `${streak}d`,             label: 'Streak' },
-        ].map((s) => (
-          <div key={s.label} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '12px 8px', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '24px', color: '#f5ede0', lineHeight: 1 }}>
-              {s.val}
-            </div>
-            <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '9px', color: '#8A8480', textTransform: 'uppercase', marginTop: '4px' }}>
-              {s.label}
-            </div>
+          { val: `${onTimePercent}%`, label: 'On-time' },
+          { val: `${streak}d`, label: 'Streak' },
+        ].map((stat) => (
+          <div key={stat.label} className="bg-white/5 rounded-lg p-3 text-center border border-white/5">
+            <p className="font-bebas text-2xl text-[#f5ede0] leading-none mb-1">{stat.val}</p>
+            <p className="font-mono text-[9px] text-[#8A8480] uppercase tracking-wider">{stat.label}</p>
           </div>
         ))}
       </div>

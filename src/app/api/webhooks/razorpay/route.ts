@@ -1,56 +1,89 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyWebhookSignature } from '@/lib/razorpay';
+import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
-  const bodyText = await req.text();
-  const signature = req.headers.get('x-razorpay-signature');
+  const rawBody = await req.text();
+  const signature = req.headers.get('X-Razorpay-Signature');
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-  if (!signature || !verifyWebhookSignature(bodyText, signature)) {
+  if (!signature || !secret) {
+    return NextResponse.json({ error: 'Missing signature or secret' }, { status: 400 });
+  }
+
+  // Verify Signature
+  const expectedSig = crypto
+    .createHmac('sha256', secret)
+    .update(rawBody)
+    .digest('hex');
+
+  const isValid = crypto.timingSafeEqual(
+    Buffer.from(expectedSig, 'hex'),
+    Buffer.from(signature, 'hex')
+  );
+
+  if (!isValid) {
+    console.error('[Razorpay Webhook] Invalid signature');
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  let event;
-  try {
-    event = JSON.parse(bodyText);
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
+  const event = JSON.parse(rawBody);
 
-  // Handle events asynchronously
-  processEvent(event).catch((err) => console.error('Webhook processing error:', err));
+  // Process asynchronously to avoid Razorpay timeout
+  processWebhookEvent(event).catch((err) => {
+    console.error('[Razorpay Webhook] Event processing failed:', err);
+  });
 
-  return NextResponse.json({ received: true });
+  return NextResponse.json({ success: true }, { status: 200 });
 }
 
-async function processEvent(event: any) {
-  const eventType = event.event;
+async function processWebhookEvent(event: any) {
+  console.log(`[Razorpay Webhook] Processing event: ${event.event}`);
 
-  if (eventType === 'payment.captured') {
-    const payment = event.payload.payment.entity;
-    const orderId = payment.order_id;
-    
-    // Redundant safety check to ensure booking is marked PAID
-    await supabaseAdmin
-      .from('bookings')
-      .update({ payment_status: 'PAID', razorpay_payment_id: payment.id })
-      .eq('razorpay_order_id', orderId)
-      .eq('payment_status', 'PENDING');
-  }
+  switch (event.event) {
+    case 'payment.captured': {
+      const paymentId = event.payload.payment.entity.id;
+      const orderId = event.payload.payment.entity.order_id;
+      
+      // Idempotent update: mark booking as PAID
+      const { error } = await supabaseAdmin
+        .from('bookings')
+        .update({ 
+          payment_status: 'PAID', 
+          razorpay_payment_id: paymentId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('razorpay_order_id', orderId)
+        .eq('payment_status', 'PENDING');
 
-  if (eventType === 'payout.processed') {
-    const payout = event.payload.payout.entity;
-    const reference = payout.reference_id; // queuepe-job-{bookingId}
-    
-    if (reference?.startsWith('queuepe-job-')) {
-      // In a real app, we might want to log this payout in a transactions table
-      console.log(`Payout processed for ${reference}`);
+      if (error) {
+        console.error(`[Webhook] Failed to update booking ${orderId}:`, error);
+      }
+      break;
     }
-  }
 
-  if (eventType === 'payout.failed' || eventType === 'payout.reversed') {
-    const payout = event.payload.payout.entity;
-    console.error(`Payout failed/reversed: ${payout.id}`, payout.failure_reason);
-    // Real app: Flag for manual intervention
+    case 'payout.processed': {
+      const reference = event.payload.payout.entity.reference_id;
+      console.log(`[Webhook] Payout successful: ${reference}`);
+      // Future: Log to a dedicated audit_logs or transactions table
+      break;
+    }
+
+    case 'payout.failed': {
+      const reference = event.payload.payout.entity.reference_id;
+      const reason = event.payload.payout.entity.failure_reason;
+      console.error(`[Webhook] PAYOUT FAILED: ${reference}. Reason: ${reason}`);
+      
+      // Notify Admin
+      await supabaseAdmin.from('notifications').insert({
+        user_id: 'ADMIN_UUID', // Placeholder for actual admin user ID
+        type: 'ALERT',
+        message: `CRITICAL: Payout failed for ${reference}. Reason: ${reason}`
+      });
+      break;
+    }
+
+    default:
+      console.log(`[Webhook] Unhandled event: ${event.event}`);
   }
 }

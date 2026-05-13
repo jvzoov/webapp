@@ -1,378 +1,218 @@
 import Link from 'next/link';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { Button } from '@/components/ui/button';
 import type { Location } from '@/types/database';
 
-async function getLocations(): Promise<Location[]> {
-  const { data } = await supabaseAdmin
+/**
+ * QueuePe Landing Page
+ * Server Component fetching location data from Supabase.
+ */
+export default async function LandingPage() {
+  const supabase = await createServerSupabaseClient();
+  const { data: locations } = await supabase
     .from('locations')
     .select('*')
     .order('category');
-  return data ?? [];
-}
 
-export default async function LandingPage() {
-  const locations = await getLocations();
+  const locs = locations ?? [];
 
   return (
-    <>
-      {/* ─── FONTS ─────────────────────────────────────────── */}
-      <style>{`
-        .font-display { font-family: 'Bebas Neue', sans-serif; }
-        .font-mono    { font-family: 'DM Mono', monospace; }
-        .hero-h1      { font-size: clamp(64px, 10vw, 100px); line-height: 0.95; }
-        .loc-card:hover { border-color: #FF6B00 !important; transform: translateY(-2px); }
-        .loc-card { transition: all 0.2s ease; }
-        .nav-btn-outline:hover { background: rgba(245,237,224,0.08); }
-        .stander-earn-cta:hover { background: #e05e00; }
-      `}</style>
-
-      <div style={{ background: '#0c0a06', color: '#f5ede0', minHeight: '100vh' }}>
-
-        {/* ─── NAVBAR ──────────────────────────────────────── */}
-        <nav
-          style={{
-            position:       'sticky',
-            top:            0,
-            zIndex:         50,
-            background:     'rgba(12,10,6,0.92)',
-            backdropFilter: 'blur(12px)',
-            borderBottom:   '1px solid #362a16',
-            padding:        '0 24px',
-            height:         '60px',
-            display:        'flex',
-            alignItems:     'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <span className="font-display" style={{ fontSize: '28px' }}>
-            Queue<span style={{ color: '#FF6B00' }}>Pe</span>
+    <div className="bg-[#0c0a06] text-[#f5ede0] min-h-screen selection:bg-[#FF6B00]/30">
+      
+      {/* ─── 1. NAVBAR ──────────────────────────────────────── */}
+      <nav className="sticky top-0 z-50 bg-[#0c0a06]/95 backdrop-blur-md border-b border-[#362a16] h-[64px] flex items-center px-6 md:px-12 justify-between">
+        <Link href="/" className="flex items-center gap-1 group">
+          <span className="font-bebas text-2xl tracking-wide">
+            Queue<span className="text-[#FF6B00]">Pe</span>
           </span>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <Link
-              href="/login"
-              className="nav-btn-outline"
-              style={{
-                border:       '1px solid #362a16',
-                borderRadius: '8px',
-                padding:      '7px 16px',
-                fontSize:     '13px',
-                color:        '#f5ede0',
-                textDecoration: 'none',
-                fontFamily:   'Noto Sans, sans-serif',
-              }}
-            >
-              Login
-            </Link>
-            <Link
-              href="/register"
-              style={{
-                background:   '#FF6B00',
-                borderRadius: '8px',
-                padding:      '7px 16px',
-                fontSize:     '13px',
-                color:        '#fff',
-                textDecoration: 'none',
-                fontFamily:   'Noto Sans, sans-serif',
-                fontWeight:   600,
-              }}
-            >
-              Register
-            </Link>
-          </div>
-        </nav>
+        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/login">
+            <Button variant="outline" size="sm" className="border-[#362a16] text-[#f5ede0] hover:bg-[#1f180e] px-5">
+              LOGIN
+            </Button>
+          </Link>
+          <Link href="/register">
+            <Button size="sm" className="bg-[#FF6B00] hover:bg-[#e05e00] text-white px-5 border-none">
+              REGISTER
+            </Button>
+          </Link>
+        </div>
+      </nav>
 
-        {/* ─── HERO ────────────────────────────────────────── */}
-        <section
-          style={{
-            minHeight:      '100vh',
-            display:        'flex',
-            flexDirection:  'column',
-            alignItems:     'center',
-            justifyContent: 'center',
-            textAlign:      'center',
-            padding:        '80px 24px 60px',
-          }}
-        >
-          <p
-            className="font-mono"
-            style={{
-              color:         '#FF6B00',
-              fontSize:      '12px',
-              letterSpacing: '0.18em',
-              marginBottom:  '20px',
-              textTransform: 'uppercase',
-            }}
-          >
-            India&apos;s Queue Problem, Solved
-          </p>
+      {/* ─── 2. HERO ────────────────────────────────────────── */}
+      <section className="relative min-h-[90vh] flex flex-col items-center justify-center px-6 text-center overflow-hidden">
+        {/* Radial Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#FF6B00]/5 blur-[120px] rounded-full pointer-events-none" />
+        
+        <p className="font-mono text-[10px] text-[#FF6B00] tracking-[.18em] uppercase mb-6 animate-fade-in">
+          INDIA&apos;S QUEUE PROBLEM, SOLVED
+        </p>
+        
+        <h1 className="font-bebas text-[clamp(64px,10vw,100px)] leading-[0.9] mb-8 select-none">
+          Skip The <span className="text-[#FF6B00]">LINE.</span>
+        </h1>
+        
+        <p className="italic text-[#a08060] text-lg md:text-xl max-w-xl leading-relaxed mb-10">
+          &quot;We send a verified Stander to hold your spot at any RTO, hospital, bank or government office — while you carry on with your day.&quot;
+        </p>
 
-          <h1 className="font-display hero-h1" style={{ color: '#f5ede0', marginBottom: '24px' }}>
-            Skip The{' '}
-            <span style={{ color: '#FF6B00' }}>LINE.</span>
-          </h1>
+        {/* Stat Pills */}
+        <div className="flex flex-wrap justify-center gap-3 mb-12">
+          {[
+            '₹150 starts at/hr',
+            '15 min avg match',
+            '4.8★ avg rating'
+          ].map((stat) => (
+            <div key={stat} className="font-mono text-[11px] px-4 py-2 border border-[#362a16] rounded-full text-[#a08060] bg-[#1f180e]/40">
+              {stat}
+            </div>
+          ))}
+        </div>
 
-          <p
-            style={{
-              fontStyle:    'italic',
-              color:        'rgba(245,237,224,0.6)',
-              fontSize:     'clamp(15px, 2.5vw, 18px)',
-              maxWidth:     '560px',
-              lineHeight:   1.7,
-              marginBottom: '40px',
-            }}
-          >
-            We send a verified Stander to hold your spot at any RTO, hospital,
-            bank or government office — while you carry on with your day.
-          </p>
-
-          {/* Stat pills */}
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '44px' }}>
-            {[
-              { val: '₹150', label: 'starts at' },
-              { val: '15 min', label: 'avg match' },
-              { val: '4.8★', label: 'avg rating' },
-            ].map((s) => (
-              <div
-                key={s.label}
-                style={{
-                  background:   '#1f180e',
-                  border:       '1px solid #362a16',
-                  borderRadius: '100px',
-                  padding:      '8px 18px',
-                  display:      'flex',
-                  gap:          '8px',
-                  alignItems:   'baseline',
-                }}
-              >
-                <span className="font-display" style={{ color: '#FF6B00', fontSize: '20px' }}>
-                  {s.val}
-                </span>
-                <span className="font-mono" style={{ color: '#a08060', fontSize: '11px' }}>
-                  {s.label}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* CTAs */}
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-            <Link
-              href="/register"
-              style={{
-                background:   '#FF6B00',
-                color:        '#fff',
-                borderRadius: '10px',
-                padding:      '14px 32px',
-                fontFamily:   'Bebas Neue, sans-serif',
-                fontSize:     '20px',
-                letterSpacing:'0.06em',
-                textDecoration:'none',
-              }}
-            >
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md px-6">
+          <Link href="/register" className="flex-1">
+            <Button className="w-full py-6 text-xl tracking-wider">
               BOOK A STANDER →
-            </Link>
-            <Link
-              href="/register?role=stander"
-              style={{
-                background:   'transparent',
-                color:        '#f5ede0',
-                border:       '1px solid #362a16',
-                borderRadius: '10px',
-                padding:      '14px 32px',
-                fontFamily:   'Bebas Neue, sans-serif',
-                fontSize:     '20px',
-                letterSpacing:'0.06em',
-                textDecoration:'none',
-              }}
-            >
+            </Button>
+          </Link>
+          <Link href="/register?role=STANDER" className="flex-1">
+            <Button variant="outline" className="w-full py-6 text-xl tracking-wider border-[#f5ede0] text-[#f5ede0] hover:bg-[#f5ede0]/5 bg-transparent">
               EARN AS A STANDER
-            </Link>
-          </div>
-        </section>
+            </Button>
+          </Link>
+        </div>
+      </section>
 
-        {/* ─── HOW IT WORKS ────────────────────────────────── */}
-        <section style={{ padding: '80px 24px', maxWidth: '900px', margin: '0 auto' }}>
-          <p className="font-mono" style={{ color: '#FF6B00', fontSize: '11px', letterSpacing: '0.18em', textAlign: 'center', marginBottom: '48px' }}>
-            HOW IT WORKS
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '32px' }}>
-            {[
-              { n: '01', title: 'Choose & Pay',  body: 'Pick your location and start time. Pay securely online in under a minute.' },
-              { n: '02', title: 'Get Matched',   body: 'We match you with a verified, Aadhaar-checked Stander near your office in ~15 min.' },
-              { n: '03', title: 'Relax & Go',    body: 'Your Stander holds the spot and sends GPS check-ins. WhatsApp alert when it\'s your turn.' },
-            ].map((step) => (
-              <div key={step.n}>
-                <div className="font-display" style={{ fontSize: '80px', color: '#1f180e', lineHeight: 1, marginBottom: '8px' }}>
-                  {step.n}
-                </div>
-                <h3 className="font-display" style={{ fontSize: '28px', color: '#FF6B00', marginBottom: '8px' }}>
-                  {step.title}
-                </h3>
-                <p style={{ color: 'rgba(245,237,224,0.55)', fontSize: '15px', lineHeight: 1.65 }}>
-                  {step.body}
+      {/* ─── 3. HOW IT WORKS ────────────────────────────────── */}
+      <section className="py-24 px-6 md:px-12 max-w-6xl mx-auto">
+        <h2 className="font-mono text-[11px] text-[#FF6B00] tracking-widest text-center mb-20 uppercase">
+          HOW IT WORKS
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-16 relative">
+          {[
+            { n: '01', title: 'Choose & Pay', text: 'Select location + time, pay online, instant confirmation' },
+            { n: '02', title: 'We Match Fast', text: 'Verified Stander matched in 15 min, WhatsApp notification' },
+            { n: '03', title: 'Track & Go', text: 'Live GPS updates, WhatsApp alert when your turn nears' },
+          ].map((step) => (
+            <div key={step.n} className="relative group">
+              <span className="absolute -top-12 -left-4 font-bebas text-[120px] text-[#FF6B00]/5 select-none leading-none -z-10 transition-colors group-hover:text-[#FF6B00]/10">
+                {step.n}
+              </span>
+              <h3 className="font-bebas text-3xl text-[#FF6B00] mb-4 tracking-wide">{step.title}</h3>
+              <p className="text-[#a08060] leading-relaxed">{step.text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── 4. LOCATION TYPES GRID ──────────────────────────── */}
+      <section className="py-24 px-6 md:px-12 bg-[#1f180e]/20 border-y border-[#362a16]">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="font-mono text-[11px] text-[#FF6B00] tracking-widest text-center mb-16 uppercase">
+            OPERATIONAL LOCATIONS
+          </h2>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {locs.map((loc) => (
+              <div 
+                key={loc.id} 
+                className="bg-[#1f180e] border border-[#362a16] rounded-[10px] p-6 md:p-8 hover:border-[#FF6B00] transition-all group"
+              >
+                <div className="text-4xl mb-6 grayscale group-hover:grayscale-0 transition-all">{loc.icon}</div>
+                <h4 className="font-semibold text-lg md:text-xl text-[#f5ede0] mb-2">{loc.name}</h4>
+                <p className="font-mono text-[11px] text-[#a08060] uppercase tracking-wider">
+                  Avg wait: {loc.avg_wait_hours}
                 </p>
               </div>
             ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* ─── LOCATION TYPES ──────────────────────────────── */}
-        <section style={{ padding: '80px 24px', maxWidth: '900px', margin: '0 auto' }}>
-          <p className="font-mono" style={{ color: '#FF6B00', fontSize: '11px', letterSpacing: '0.18em', textAlign: 'center', marginBottom: '48px' }}>
-            WHERE WE OPERATE
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '14px' }}>
-            {locations.map((loc) => (
-              <div
-                key={loc.id}
-                className="loc-card"
-                style={{
-                  background:   '#1f180e',
-                  border:       '1px solid #362a16',
-                  borderRadius: '10px',
-                  padding:      '20px',
-                  cursor:       'default',
-                }}
-              >
-                <div style={{ fontSize: '32px', marginBottom: '10px' }}>{loc.icon}</div>
-                <div style={{ fontWeight: 600, marginBottom: '4px', fontSize: '15px' }}>{loc.name}</div>
-                <div className="font-mono" style={{ color: '#a08060', fontSize: '11px' }}>
-                  Avg wait: {loc.avg_wait_hours}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+      {/* ─── 5. TRUST SIGNALS ───────────────────────────────── */}
+      <section className="py-16 border-b border-[#362a16]">
+        <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {[
+            'Aadhaar-verified Standers',
+            'GPS check-ins every 30 min',
+            'WhatsApp alert when your turn',
+            'Full refund if no match in 20 min'
+          ].map((signal) => (
+            <div key={signal} className="flex items-center gap-3">
+              <svg className="w-5 h-5 text-[#1A7A4A] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-sm font-medium text-[#f5ede0]/80">{signal}</span>
+            </div>
+          ))}
+        </div>
+      </section>
 
-        {/* ─── TRUST SIGNALS ───────────────────────────────── */}
-        <section style={{ padding: '60px 24px', borderTop: '1px solid #1f180e', borderBottom: '1px solid #1f180e' }}>
-          <div
-            style={{
-              maxWidth: '900px',
-              margin:   '0 auto',
-              display:  'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap:      '28px',
-            }}
-          >
-            {[
-              { icon: '✓', text: 'Aadhaar-verified Standers' },
-              { icon: '✓', text: 'GPS check-ins every 30 min' },
-              { icon: '✓', text: 'WhatsApp alert when your turn' },
-              { icon: '✓', text: 'Full refund if no match in 20 min' },
-            ].map((t) => (
-              <div key={t.text} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                <span style={{ color: '#FF6B00', fontWeight: 700, fontSize: '18px', flexShrink: 0 }}>
-                  {t.icon}
-                </span>
-                <span style={{ color: 'rgba(245,237,224,0.7)', fontSize: '14px', lineHeight: 1.5 }}>
-                  {t.text}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ─── STANDER RECRUITMENT ─────────────────────────── */}
-        <section
-          style={{
-            padding:    '80px 24px',
-            textAlign:  'center',
-            background: 'linear-gradient(135deg, #1f180e 0%, #0c0a06 100%)',
-            borderTop:  '1px solid #362a16',
-          }}
-        >
-          <p className="font-mono" style={{ color: '#FF6B00', fontSize: '11px', letterSpacing: '0.18em', marginBottom: '20px' }}>
-            FOR STANDERS
-          </p>
-          <h2 className="font-display" style={{ fontSize: 'clamp(36px, 6vw, 64px)', color: '#f5ede0', marginBottom: '16px', lineHeight: 1 }}>
-            EARN ₹150–200/HR<br />
-            <span style={{ color: '#FF6B00' }}>JUST BY STANDING</span>
+      {/* ─── 6. STANDER RECRUITMENT ─────────────────────────── */}
+      <section className="py-24 px-6">
+        <div className="max-w-5xl mx-auto bg-[#1f180e] rounded-2xl p-8 md:p-16 border border-[#362a16] text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#FF6B00]" />
+          
+          <p className="font-mono text-[10px] text-[#FF6B00] tracking-[.18em] mb-6">FOR STANDERS</p>
+          <h2 className="font-bebas text-[48px] md:text-[72px] leading-none mb-6">
+            EARN ₹150–200/HR <br className="hidden md:block" />
+            <span className="text-[#FF6B00]">JUST BY STANDING</span>
           </h2>
-          <p style={{ color: 'rgba(245,237,224,0.55)', fontSize: '15px', marginBottom: '12px', maxWidth: '480px', margin: '0 auto 12px' }}>
-            42 standers on QueuePe earned ₹8,000+ collectively last week.
-            No skills needed — just show up, stand in line, and earn.
+          <p className="text-[#a08060] text-lg mb-10 max-w-lg mx-auto">
+            Join 42+ verified standers. Average ₹8,000+ earned last week. 
+            Flexible hours, instant payouts.
           </p>
-          <div
-            style={{
-              display:        'flex',
-              gap:            '20px',
-              justifyContent: 'center',
-              margin:         '32px 0',
-              flexWrap:       'wrap',
-            }}
-          >
-            {[
-              { val: '42',      label: 'Active Standers' },
-              { val: '₹8,000+', label: 'Earned Last Week' },
-              { val: '4.8★',    label: 'Avg Stander Rating' },
-            ].map((s) => (
-              <div
-                key={s.label}
-                style={{
-                  background:   '#0c0a06',
-                  border:       '1px solid #362a16',
-                  borderRadius: '10px',
-                  padding:      '16px 24px',
-                  textAlign:    'center',
-                  minWidth:     '120px',
-                }}
-              >
-                <div className="font-display" style={{ fontSize: '32px', color: '#FF6B00' }}>{s.val}</div>
-                <div className="font-mono" style={{ fontSize: '10px', color: '#a08060', marginTop: '4px' }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-          <Link
-            href="/register?role=stander"
-            className="stander-earn-cta"
-            style={{
-              display:       'inline-block',
-              background:    '#FF6B00',
-              color:         '#fff',
-              borderRadius:  '10px',
-              padding:       '14px 36px',
-              fontFamily:    'Bebas Neue, sans-serif',
-              fontSize:      '22px',
-              letterSpacing: '0.06em',
-              textDecoration:'none',
-              transition:    'background 0.2s',
-            }}
-          >
-            START EARNING →
+          <Link href="/register?role=STANDER">
+            <Button className="max-w-xs mx-auto py-7 text-2xl tracking-widest">
+              START EARNING →
+            </Button>
           </Link>
-        </section>
+        </div>
+      </section>
 
-        {/* ─── FOOTER ──────────────────────────────────────── */}
-        <footer
-          style={{
-            borderTop: '1px solid #1f180e',
-            padding:   '36px 24px',
-            textAlign: 'center',
-          }}
-        >
-          <div className="font-display" style={{ fontSize: '28px', marginBottom: '8px' }}>
-            Queue<span style={{ color: '#FF6B00' }}>Pe</span>
+      {/* ─── 7. FOOTER ──────────────────────────────────────── */}
+      <footer className="py-16 px-6 md:px-12 border-t border-[#362a16] bg-[#0c0a06]">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start gap-12">
+          <div className="space-y-4">
+            <span className="font-bebas text-3xl tracking-wide">
+              Queue<span className="text-[#FF6B00]">Pe</span>
+            </span>
+            <p className="text-[#a08060] text-sm max-w-[240px]">
+              Skip the Line, Not Your Day. <br />
+              India&apos;s leading queue standing service.
+            </p>
           </div>
-          <p style={{ color: '#a08060', fontSize: '13px', marginBottom: '20px' }}>
-            India&apos;s queue-standing marketplace
-          </p>
-          <div style={{ display: 'flex', gap: '24px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            {['About', 'Privacy', 'Terms', 'Contact'].map((l) => (
-              <Link
-                key={l}
-                href={`/${l.toLowerCase()}`}
-                style={{ color: '#a08060', fontSize: '13px', textDecoration: 'none' }}
-              >
-                {l}
-              </Link>
-            ))}
+          
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-12">
+            <div className="space-y-4">
+              <h5 className="font-mono text-[10px] text-[#FF6B00] tracking-widest uppercase">Company</h5>
+              <ul className="space-y-2 text-sm text-[#a08060]">
+                <li><Link href="/about" className="hover:text-[#f5ede0] transition-colors">About</Link></li>
+                <li><Link href="/privacy" className="hover:text-[#f5ede0] transition-colors">Privacy</Link></li>
+                <li><Link href="/terms" className="hover:text-[#f5ede0] transition-colors">Terms</Link></li>
+              </ul>
+            </div>
+            <div className="space-y-4">
+              <h5 className="font-mono text-[10px] text-[#FF6B00] tracking-widest uppercase">Contact</h5>
+              <ul className="space-y-2 text-sm text-[#a08060]">
+                <li><Link href="/contact" className="hover:text-[#f5ede0] transition-colors">Support</Link></li>
+                <li><Link href="/contact" className="hover:text-[#f5ede0] transition-colors">Partnerships</Link></li>
+              </ul>
+            </div>
           </div>
-          <p style={{ color: '#362a16', fontSize: '12px', marginTop: '24px' }}>
+        </div>
+        
+        <div className="max-w-6xl mx-auto mt-16 pt-8 border-t border-[#362a16] flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-[12px] text-[#362a16]">
             © {new Date().getFullYear()} QueuePe. All rights reserved.
           </p>
-        </footer>
-      </div>
-    </>
+          <div className="flex gap-6">
+            <div className="w-5 h-5 bg-[#362a16] rounded-full" />
+            <div className="w-5 h-5 bg-[#362a16] rounded-full" />
+            <div className="w-5 h-5 bg-[#362a16] rounded-full" />
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }

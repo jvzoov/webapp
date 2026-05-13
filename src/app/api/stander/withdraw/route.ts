@@ -1,35 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createPayout } from '@/lib/razorpay';
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session?.user || session.user.role !== 'STANDER') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
-  const standerId = (session.user as any).id as string;
-  const role = (session.user as any).role as string;
-  if (role !== 'STANDER') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const standerId = session.user.id;
+  const standerName = session.user.name ?? 'Stander';
 
-  // For this MVP, since we automatically trigger a Payout via Razorpay when a job is marked COMPLETED,
-  // this route acts as a fallback/manual withdrawal trigger if something fails, or for testing.
-  
-  // In a real system, you would sum up unwithdrawn earnings, check minimum withdrawal limits,
-  // create a Payout request, and deduct from their internal wallet balance.
-  
-  const { data: profile } = await supabaseAdmin
+  // 1. Fetch Profile and Balance
+  const { data: profile, error: profileErr } = await supabaseAdmin
     .from('stander_profiles')
-    .select('total_earnings')
+    .select('upi_id, total_earnings')
     .eq('user_id', standerId)
     .single();
 
-  if (!profile) {
+  if (profileErr || !profile) {
     return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
   }
 
-  // Example logic: Just return success for now.
-  return NextResponse.json({ 
-    success: true, 
-    message: 'Withdrawal requested. It will be processed to your UPI ID shortly.',
-    amount: profile.total_earnings 
-  });
+  if (!profile.upi_id) {
+    return NextResponse.json({ error: 'No UPI ID set. Please update your profile.' }, { status: 400 });
+  }
+
+  const amount = profile.total_earnings;
+  if (amount < 10000) { // ₹100 minimum
+    return NextResponse.json({ error: 'Minimum withdrawal amount is ₹100' }, { status: 400 });
+  }
+
+  // 2. Initiate Razorpay Payout
+  try {
+    const payout = await createPayout({
+      upiId:     profile.upi_id,
+      amount:    amount,
+      reference: `withdraw-${standerId}-${Date.now()}`,
+      name:      standerName,
+      jobId:     `WID-${standerId}-${Date.now()}`, // Using withdrawal prefix
+    });
+
+    // 3. Clear Balance on Success
+    // In a real app, you'd move this to a "pending_payouts" table and clear it via webhook
+    const { error: updateErr } = await supabaseAdmin
+      .from('stander_profiles')
+      .update({ total_earnings: 0 })
+      .eq('user_id', standerId);
+
+    if (updateErr) {
+      console.error('[Withdraw] Balance update failed:', updateErr);
+      // Payout was successful, but DB update failed. Log for manual reconciliation.
+    }
+
+    return NextResponse.json({ success: true, payoutId: payout.id });
+  } catch (err: any) {
+    console.error('[Withdraw] Razorpay error:', err);
+    return NextResponse.json({ error: 'Failed to initiate payout: ' + (err.description || err.message) }, { status: 500 });
+  }
 }
