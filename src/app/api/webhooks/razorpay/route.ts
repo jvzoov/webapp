@@ -75,11 +75,20 @@ async function processWebhookEvent(event: any) {
       console.error(`[Webhook] PAYOUT FAILED: ${reference}. Reason: ${reason}`);
       
       // Notify Admin
-      await supabaseAdmin.from('notifications').insert({
-        user_id: 'ADMIN_UUID', // Placeholder for actual admin user ID
-        type: 'ALERT',
-        message: `CRITICAL: Payout failed for ${reference}. Reason: ${reason}`
-      });
+      const { data: adminUser } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('role', 'ADMIN')
+        .limit(1)
+        .single();
+
+      if (adminUser) {
+        await supabaseAdmin.from('notifications').insert({
+          user_id: adminUser.id,
+          type: 'ALERT',
+          message: `CRITICAL: Payout failed for ${reference}. Reason: ${reason}`
+        });
+      }
       break;
     }
 

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import bcrypt from 'bcryptjs';
 
 const WATI_BASE = process.env.WATI_API_ENDPOINT!;
 const WATI_TOKEN = process.env.WATI_API_TOKEN!;
@@ -87,5 +88,81 @@ export async function sendJobAcceptedToStander(phone: string, data: { locationAd
     { name: 'clientName',      value: data.clientName },
     { name: 'estimatedHours',  value: data.estimatedHours },
     { name: 'payout',          value: data.payout },
+  ]);
+}
+// ─── OTP Helpers ─────────────────────────────────────────────
+
+/**
+ * Generates a 6-digit OTP, hashes it, and sends it via WhatsApp.
+ */
+export async function sendWhatsAppOTP(phone: string): Promise<{ success: boolean; messageId?: string }> {
+  // 1. Generate 6-digit OTP
+  const plainOTP = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  // 2. Hash OTP for secure storage
+  const otp_hash = await bcrypt.hash(plainOTP, 10);
+  const expires_at = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min
+
+  // 3. Store in Supabase 'otp_sessions'
+  const { error } = await supabaseAdmin.from('otp_sessions').insert({
+    phone,
+    otp_hash,
+    expires_at,
+    attempts: 0,
+  });
+
+  if (error) {
+    console.error('[WATI] OTP Session storage failed:', error);
+    return { success: false };
+  }
+
+  // 4. Send via WATI
+  const sent = await sendWATITemplate(phone, 'queuepe_otp', [
+    { name: 'otp', value: plainOTP },
+  ]);
+
+  return { success: sent };
+}
+
+/**
+ * Verifies an OTP against the stored hash.
+ */
+export async function verifyWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
+  // 1. Fetch latest valid session
+  const { data: session, error } = await supabaseAdmin
+    .from('otp_sessions')
+    .select('*')
+    .eq('phone', phone)
+    .gt('expires_at', new Date().toISOString())
+    .lt('attempts', 5)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !session) return false;
+
+  // 2. Increment attempts
+  await supabaseAdmin
+    .from('otp_sessions')
+    .update({ attempts: session.attempts + 1 })
+    .eq('id', session.id);
+
+  // 3. Verify hash
+  const valid = await bcrypt.compare(otp, session.otp_hash);
+
+  // 4. Cleanup on success
+  if (valid) {
+    await supabaseAdmin.from('otp_sessions').delete().eq('id', session.id);
+  }
+
+  return valid;
+}
+
+/**
+ * Standardized Welcome Message
+ */
+export async function sendWelcomeMessage(phone: string, name: string) {
+  return sendWATITemplate(phone, 'welcome_message', [
+    { name: 'name', value: name },
   ]);
 }
