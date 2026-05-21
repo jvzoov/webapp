@@ -1,35 +1,48 @@
 import { auth } from '@/auth';
-import { supabaseAdmin } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import TopBar from '@/components/shared/TopBar';
 import BottomNav from '@/components/shared/BottomNav';
 import EarningsBar from '@/components/stander/EarningsBar';
-import JobCard from '@/components/stander/JobCard';
-import type { BookingWithDetails, StanderProfile } from '@/types/database';
+import JobFeedClient from '@/components/stander/JobFeedClient';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import type { BookingWithDetails } from '@/types/database';
 
-async function getStanderData(userId: string) {
-  // 1. Profile
+/**
+ * Stander Home Page
+ * Displays earnings dashboard and a real-time feed of available jobs.
+ */
+export default async function StanderHomePage() {
+  const session = await auth();
+
+  if (!session?.user) redirect('/login');
+  if (session.user.role !== 'STANDER') redirect('/client/home');
+
+  const userId = session.user.id;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // 1. Fetch Profile & Stats
   const { data: profile } = await supabaseAdmin
     .from('stander_profiles')
     .select('*')
     .eq('user_id', userId)
     .single();
 
-  // 2. Today's earnings
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const { data: todayJobs } = await supabaseAdmin
+  // 2. Fetch Today's Earnings
+  const { data: todayEarningsData } = await supabaseAdmin
     .from('bookings')
     .select('stander_payout')
     .eq('stander_id', userId)
     .eq('status', 'COMPLETED')
-    .gte('updated_at', startOfDay.toISOString());
+    .gte('created_at', today.toISOString());
 
-  const todayEarnings = todayJobs?.reduce((sum, job) => sum + job.stander_payout, 0) ?? 0;
-  const todayCount    = todayJobs?.length ?? 0;
+  const todayEarnings = todayEarningsData?.reduce((sum, b) => sum + b.stander_payout, 0) || 0;
+  const todayCount = todayEarningsData?.length || 0;
 
-  // 3. Available jobs
+  // 3. Fetch Available Jobs (Pending Match & Paid)
   const { data: jobs } = await supabaseAdmin
     .from('bookings')
     .select(`
@@ -39,67 +52,59 @@ async function getStanderData(userId: string) {
     `)
     .eq('status', 'PENDING_MATCH')
     .eq('payment_status', 'PAID')
-    .order('created_at', { ascending: true })
-    .limit(10);
+    .is('stander_id', null)
+    .order('start_time', { ascending: true })
+    .limit(20);
 
-  return {
-    profile:       profile as StanderProfile,
-    todayEarnings: todayEarnings,
-    todayCount,
-    jobs:          (jobs ?? []) as BookingWithDetails[],
-  };
-}
-
-export default async function StanderHomePage() {
-  const session = await auth();
-  if (!session?.user) redirect('/login');
-
-  const { user } = session;
-  const { profile, todayEarnings, todayCount, jobs } = await getStanderData(user.id);
+  // 4. Check for Active Job
+  const { data: activeJob } = await supabaseAdmin
+    .from('bookings')
+    .select('id, location:locations(name), status')
+    .eq('stander_id', userId)
+    .in('status', ['MATCHED', 'ACTIVE', 'ALERT'])
+    .maybeSingle();
 
   return (
-    <div className="app-shell" style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh', background: '#F7F4EE' }}>
-      <TopBar role="stander" userName={user.name} avatarInitials={user.avatarInitials} />
-
-      <EarningsBar
-        earnings={todayEarnings}
-        streak={profile?.current_streak ?? 0}
-        jobCount={todayCount}
+    <div className="max-w-[480px] mx-auto bg-[#F7F4EE] min-h-screen flex flex-col relative overflow-x-hidden">
+      
+      <TopBar 
+        role="stander" 
+        userName={session.user.name ?? ''} 
+        avatarInitials={session.user.avatarInitials} 
       />
 
-      <main style={{ flex: 1, padding: '16px', paddingBottom: '90px' }}>
-        <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '10px', color: '#8A8480', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '12px' }}>
-          Available Jobs Near You
-        </div>
+      <EarningsBar 
+        earnings={todayEarnings} 
+        streak={profile?.current_streak ?? 0} 
+        jobCount={todayCount} 
+      />
 
-        {jobs.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
-            <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '24px', color: '#1A1612' }}>No jobs right now</div>
-            <div style={{ fontSize: '14px', color: '#8A8480', marginTop: '4px' }}>
-              We&apos;ll notify you when a new job pops up in your area.
-            </div>
-            <button
-              style={{
-                marginTop: '20px',
-                background: 'transparent',
-                border: '1px solid #1A7A4A',
-                color: '#1A7A4A',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                fontSize: '13px',
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              Enable Notifications
-            </button>
+      <main className="flex-1 overflow-y-auto">
+        
+        {/* Active Job Banner */}
+        {activeJob && (
+          <div className="p-4">
+            <Card accentColor="saffron" className="bg-[#1A1612] text-white border-none shadow-xl shadow-[#FF6B00]/10">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-mono text-[9px] text-[#FF6B00] tracking-widest uppercase mb-1">Current Job</p>
+                  <h4 className="font-bold text-sm">{activeJob.location?.name}</h4>
+                </div>
+                <Link href={`/stander/job/${activeJob.id}`}>
+                  <Button size="sm" className="bg-[#FF6B00] hover:bg-[#e05e00] border-none text-[10px] tracking-widest font-mono h-8 px-4">
+                    RESUME →
+                  </Button>
+                </Link>
+              </div>
+            </Card>
           </div>
-        ) : (
-          jobs.map((job) => (
-            <JobCard key={job.id} job={job} onAccept={() => {}} />
-          ))
         )}
+
+        <JobFeedClient 
+          initialJobs={(jobs as any) || []} 
+          standerId={userId} 
+        />
+
       </main>
 
       <BottomNav role="stander" />

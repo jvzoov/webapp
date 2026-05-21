@@ -1,107 +1,95 @@
 import { auth } from '@/auth';
-import { supabaseAdmin } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
-import { Card } from '@/components/ui/Card';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import type { BookingWithDetails, StanderProfile } from '@/types/database';
-import { formatINR } from '@/lib/utils';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import AdminClient from '@/components/admin/AdminClient';
+import type { BookingWithDetails } from '@/types/database';
 
-async function getAdminData() {
-  const { data: bookings } = await supabaseAdmin
-    .from('bookings')
-    .select(`
-      *,
-      location:locations(name),
-      client:users!bookings_client_id_fkey(name, phone),
-      stander:users!bookings_stander_id_fkey(name, phone)
-    `)
-    .order('created_at', { ascending: false })
-    .limit(50);
+export const dynamic = 'force-dynamic';
 
-  const { data: standers } = await supabaseAdmin
-    .from('users')
-    .select(`
-      id, name, phone,
-      stander_profiles(is_online, rating, job_count)
-    `)
-    .eq('role', 'STANDER');
-
-  return { bookings: (bookings ?? []) as BookingWithDetails[], standers: standers ?? [] };
-}
-
-export default async function AdminDashboard() {
+export default async function AdminDashboardPage() {
   const session = await auth();
+
   if (!session?.user || session.user.role !== 'ADMIN') {
     redirect('/login');
   }
 
-  const { bookings, standers } = await getAdminData();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  const activeBookings = bookings.filter(b => ['MATCHED', 'ACTIVE', 'ALERT'].includes(b.status));
-  const pendingBookings = bookings.filter(b => b.status === 'PENDING_MATCH' && b.payment_status === 'PAID');
+  // 1. Fetch Metrics
+  const { count: activeCount } = await supabaseAdmin
+    .from('bookings')
+    .select('*', { count: 'exact', head: true })
+    .in('status', ['MATCHED', 'ACTIVE', 'ALERT']);
 
-  const onlineStanders = standers.filter(s => {
-    const profile = (s.stander_profiles as unknown as StanderProfile[]);
-    return profile?.[0]?.is_online;
-  });
+  const { data: revenueData } = await supabaseAdmin
+    .from('bookings')
+    .select('total_amount')
+    .eq('payment_status', 'PAID')
+    .gte('created_at', today.toISOString());
+  
+  const revenueToday = revenueData?.reduce((sum, b) => sum + b.total_amount, 0) || 0;
+
+  const { data: payoutsData } = await supabaseAdmin
+    .from('bookings')
+    .select('stander_payout')
+    .eq('status', 'COMPLETED')
+    .eq('payment_status', 'PAID');
+  
+  const payoutsDue = payoutsData?.reduce((sum, b) => sum + b.stander_payout, 0) || 0;
+
+  // 2. Pending Match Bookings (Urgent)
+  const { data: pendingMatch } = await supabaseAdmin
+    .from('bookings')
+    .select('*, location:locations(name), client:users!client_id(name, phone)')
+    .eq('status', 'PENDING_MATCH')
+    .eq('payment_status', 'PAID')
+    .order('created_at', { ascending: true });
+
+  // 3. Pipeline Bookings (Today)
+  const { data: pipeline } = await supabaseAdmin
+    .from('bookings')
+    .select(`
+      *,
+      location:locations(name),
+      client:users!client_id(name, avatar_initials),
+      stander:users!stander_id(name, avatar_initials)
+    `)
+    .gte('created_at', today.toISOString())
+    .order('created_at', { ascending: false });
+
+  // 4. Standers
+  const { data: standers } = await supabaseAdmin
+    .from('stander_profiles')
+    .select('*, user:users!user_id(id, name, phone, avatar_initials)')
+    .order('is_online', { ascending: false });
 
   return (
-    <div className="min-h-screen bg-[#F7F4EE]">
-      <header className="bg-[#1A1612] text-white p-4 sticky top-0 z-50">
-        <h1 className="font-display text-2xl tracking-wide">QUEUEPE ADMIN</h1>
-      </header>
-
-      <main className="p-4 max-w-5xl mx-auto space-y-6 pb-20">
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: 'Active Jobs', val: activeBookings.length, color: 'text-[#1A7A4A]' },
-            { label: 'Pending Match', val: pendingBookings.length, color: 'text-[#FF6B00]' },
-            { label: 'Online Standers', val: onlineStanders.length, color: 'text-blue-500' },
-            { label: 'Total Standers', val: standers.length, color: 'text-white' },
-          ].map(s => (
-            <Card key={s.label} className="bg-[#1A1612] border-none text-center p-6">
-              <div className={`font-display text-4xl ${s.color}`}>{s.val}</div>
-              <div className="font-mono text-[10px] text-[#8A8480] uppercase tracking-widest mt-2">{s.label}</div>
-            </Card>
-          ))}
-        </div>
-
-        {/* Live Bookings */}
-        <div>
-          <h2 className="font-mono text-xs text-[#8A8480] uppercase tracking-widest mb-3">Recent Bookings</h2>
-          <div className="space-y-3">
-            {bookings.slice(0, 15).map(b => (
-              <Card key={b.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-sm">{b.location?.name}</span>
-                    <StatusBadge status={b.status} />
-                  </div>
-                  <div className="text-xs text-[#8A8480]">
-                    Client: {b.client?.name} ({b.client?.phone})
-                    <br />
-                    Stander: {b.stander ? `${b.stander.name} (${b.stander.phone})` : 'Unassigned'}
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-4 text-right">
-                  <div>
-                    <div className="font-display text-xl text-[#FF6B00]">{formatINR(b.total_amount)}</div>
-                    <div className="text-xs text-[#8A8480]">Amount</div>
-                  </div>
-                  
-                  {b.status === 'PENDING_MATCH' && b.payment_status === 'PAID' && (
-                    <button className="bg-[#FF6B00] text-white px-3 py-1.5 rounded text-xs font-mono tracking-wide">
-                      MANUAL ASSIGN
-                    </button>
-                  )}
-                </div>
-              </Card>
-            ))}
+    <div className="min-h-screen bg-[#0c0a06] text-[#f5ede0]">
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="font-bebas text-5xl text-[#FF6B00] tracking-wide">COMMAND CENTER</h1>
+            <p className="font-mono text-[10px] text-[#a08060] uppercase tracking-[0.2em]">QueuePe Operations Dashboard</p>
+          </div>
+          <div className="text-right">
+            <p className="font-mono text-[10px] text-[#a08060] uppercase tracking-widest">{today.toDateString()}</p>
+            <p className="text-sm font-bold">Admin: {session.user.name}</p>
           </div>
         </div>
-      </main>
+
+        <AdminClient 
+          initialMetrics={{
+            activeBookings: activeCount || 0,
+            pendingMatch: pendingMatch?.length || 0,
+            revenueToday,
+            payoutsDue
+          }}
+          initialPendingMatch={(pendingMatch as any) || []}
+          initialPipeline={(pipeline as any) || []}
+          initialStanders={(standers as any) || []}
+        />
+      </div>
     </div>
   );
 }

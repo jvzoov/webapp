@@ -1,58 +1,48 @@
 import { auth } from '@/auth';
-import { supabaseAdmin } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import TopBar from '@/components/shared/TopBar';
 import BottomNav from '@/components/shared/BottomNav';
-import BookingHistoryCard from '@/components/client/BookingHistoryCard';
-import { Toaster } from 'react-hot-toast';
+import HistoryClient from '@/components/client/HistoryClient';
 import type { BookingWithDetails } from '@/types/database';
 
-async function getHistory(userId: string): Promise<BookingWithDetails[]> {
-  const { data } = await supabaseAdmin
+/**
+ * Booking History Page
+ * Server Component fetching all historical bookings for the client.
+ */
+export default async function HistoryPage() {
+  const session = await auth();
+
+  if (!session?.user) redirect('/login');
+  if (session.user.role !== 'CLIENT') redirect('/stander/home');
+
+  const { data: bookings, error } = await supabaseAdmin
     .from('bookings')
     .select(`
       *,
-      location:locations(*),
-      client:users!bookings_client_id_fkey(id, name, avatar_initials, phone),
-      stander:users!bookings_stander_id_fkey(id, name, avatar_initials, phone),
+      location:locations(name, icon),
+      stander:users!bookings_stander_id_fkey(name, avatar_initials),
       review:reviews(*)
     `)
-    .eq('client_id', userId)
+    .eq('client_id', session.user.id)
     .order('created_at', { ascending: false });
 
-  return (data ?? []) as BookingWithDetails[];
-}
-
-export default async function HistoryPage() {
-  const session = await auth();
-  if (!session?.user) redirect('/login');
-
-  const { user } = session;
-  const bookings = await getHistory(user.id);
+  if (error) {
+    console.error('[History] Fetch error:', error);
+  }
 
   return (
-    <div className="app-shell" style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
-      <Toaster position="top-center" />
-      <TopBar role="client" userName={user.name} avatarInitials={user.avatarInitials} />
+    <div className="max-w-[480px] mx-auto bg-[#F7F4EE] min-h-screen flex flex-col relative overflow-x-hidden">
+      
+      <TopBar 
+        role="client" 
+        userName={session.user.name ?? ''} 
+        showBack 
+        title="Booking History" 
+      />
 
-      <div style={{ background: '#1A1612', padding: '14px 16px' }}>
-        <h1 style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '32px', color: '#f5ede0', lineHeight: 1 }}>
-          Booking History
-        </h1>
-      </div>
-
-      <main style={{ flex: 1, overflowY: 'auto', padding: '16px', paddingBottom: '90px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {bookings.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>📋</div>
-            <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '24px', color: '#8A8480' }}>No bookings yet</div>
-            <div style={{ fontSize: '14px', color: '#B8B4B0', marginTop: '4px' }}>
-              Book your first stander to get started
-            </div>
-          </div>
-        ) : (
-          bookings.map((b) => <BookingHistoryCard key={b.id} booking={b} />)
-        )}
+      <main className="flex-1 overflow-y-auto">
+        <HistoryClient initialBookings={(bookings as any) || []} />
       </main>
 
       <BottomNav role="client" />
